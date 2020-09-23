@@ -5,3 +5,10 @@
 data
 /data/
 .RDataTmp
+*.Rproj.user
+*.Rhistory
+*.RData
+*.Ruserdata
+data/raw/map
+/data/raw/map
+*.RDataTmp
