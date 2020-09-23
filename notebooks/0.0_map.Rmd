@@ -1,0 +1,84 @@
+---
+title: "0.0_map.Rmd"
+author: "Andrea Estandia<br>"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  github_document:
+  toc: true
+toc_depth: 4
+editor_options:
+  chunk_output_type: console
+---
+  <br>
+  
+```{r setup, echo=FALSE}
+# Knitr settings: 
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+options(scipen = 999)
+```
+
+```{r, echo=FALSE}
+source("./src/0.0_great-speciators_source.R")
+```
+
+```{r}
+#Read the Birdlife shapefiles (previously processed in QGIS by splitting into three occurrence categories as files were too large to be read  in Rstudio) 
+sp0 <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/All_Species_Resident_1.2.shp")
+sp1 <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/All_Species_Resident_1.1.shp")
+sp1.1 <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/All_Species_Resident_2.shp")
+sp1.2 <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/All_Species_Resident_3.shp")
+sp1.3 <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/All_Species_Resident_4.shp")
+sp1.4 <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/All_Species_Resident_5.shp")
+sp2 <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/All_Species_Breeding.shp")
+sp3 <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/All_Species_NonBreeding.shp")
+#Land is a shapefile where every closed polygon is an island (e.g. Eurasia would be an island, Efate too, just different sizes) 
+land <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/everythingisanisland.shp")
+southpacific <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/southpacific.shp")
+
+for (i in list(c(sp0, sp1, sp1.1, sp1.2, sp1.3, sp1.4))){
+  calculateArea(i, land)
+}
+
+magic_for(print,progress = TRUE)
+is_magicalized()
+myFiles <- list(sp0, sp1, sp1.1, sp1.2, sp1.3, sp1.4)
+
+for (i in myFiles){
+  southpac_area <- calculateArea(i, southpacific)
+  put(area)
+}
+
+#Calculate total area where a species is present - range size?
+df <- data.frame()
+for (i in 1:length(breeding_intersection)){
+  df <- rbind(df,sum(breeding_intersection[[i]]))
+}
+colnames(df) <- "area"
+names <- names(breeding_intersection)
+rownames(df) <- names 
+df<- rownames_to_column(df)
+
+df_island <- data.frame()
+for (i in 1:length(breeding_intersection_island)){
+  df_island <- rbind(df_island,sum(breeding_intersection_island[[i]]))
+}
+colnames(df_island) <- "area"
+df_island <- rownames_to_column(df_island)
+
+island_index <-left_join(df, df_island, by="rowname") %>% 
+  mutate(isl_index=area.y/area.x) 
+
+write.csv(island_index, "island_index.csv", row.names = FALSE)
+
+names <- names(breeding_intersection_island)
+rownames(df_island) <- names
+
+```
+
+```{r}
+resident_distr <- data.frame()
+for (i in list(c(sp1intersection, sp1.1intersection, sp1.2intersection, sp1.3intersection, sp1.4intersection))) {
+  resident_distr <- rbind(calculateDistribution(i))
+}
+resident_distr 

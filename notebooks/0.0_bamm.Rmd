@@ -1,0 +1,52 @@
+---
+title: "0.0_bamm.Rmd"
+author: "Andrea Estandia<br>"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  github_document:
+  toc: true
+toc_depth: 4
+editor_options:
+  chunk_output_type: console
+---
+  <br>
+  
+```{r setup, echo=FALSE}
+# Knitr settings: 
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+options(scipen = 999)
+```
+
+```{r, echo=FALSE}
+source("./src/0.0_great-speciators_source.R")
+```
+
+```{r}
+
+tree <- read.tree(file.path(data_path,"/bamm/hackett.tre"), keep.multi=F)
+
+mcmcout <- read.csv("/home/estandia/programs/bamm-master/build/mcmc_out1.txt", header=T)
+plot(mcmcout$logLik ~ mcmcout$generation)
+burnstart <- floor(0.1 * nrow(mcmcout))
+postburn <- mcmcout[burnstart:nrow(mcmcout), ]
+effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$logLik)
+bfmat <- computeBayesFactors(mcmcout, expectedNumberOfShifts=70, burnin=0.1)
+
+edata <- getEventData(tree, eventdata = "/home/estandia/programs/bamm-master/build/event_data1.txt", burnin=0.1,nsamples = 100)
+plot.bammdata(edata, tau=0.001, breaksmethod='jenks', lwd=2)
+
+tiprates<- getTipRates(edata, returnNetDiv = TRUE, statistic = "mean")
+
+netdiv <- read_csv(file.path(data_path,"tiprates.csv"))
+netdiv <- as.data.frame(tiprates$netdiv.avg)
+uno <- rownames(netdiv)
+netdiv <- cbind(uno,netdiv)
+colnames(netdiv) <- c("species_name", "netdiv")
+netdiv %>% 
+  separate(species_name, c("genus", "species")) %>% 
+  unite(species_name, c("genus", "species"), sep=" ")
+
+#Now you need to left_join to the main dataset
+```
