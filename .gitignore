@@ -9,6 +9,4 @@ data
 *.Rhistory
 *.RData
 *.Ruserdata
-data/raw/map
-/data/raw/map
 *.RDataTmp
