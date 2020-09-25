@@ -22,7 +22,7 @@ options(scipen = 999)
 source("./src/0.0_great-speciators_source.R")
 ```
 
-Open Clements file, count number of subspecies per taxonomic group (genus/species)
+## Open Clements file, count number of subspecies per taxonomic group (genus/species)
 ```{r}
 checklist <- read_csv(file.path(data_path,"Clements-Checklist-v2019-August-2019.csv")) %>%  
   clean_names()  %>% 
@@ -41,7 +41,7 @@ gs_candidates <- checklist %>%
   mutate(occurrences = n()) 
 ```
 
-Open trait datasets and merge them with the checklist file. Create a new column with great speciator index (number of subspecies/island index; gs index) as described by Mayr and Diamond.
+## Open trait datasets and merge them with the checklist file. Create a new column with great speciator index (number of subspecies/island index; gs index) as described by Mayr and Diamond.
 ```{r}
 ###########################
 ####Species-level dataset####
@@ -97,7 +97,7 @@ dataset <- left_join(gs_candidates, hwi, by = "species_name") %>%
 #   clean_names()
 ```
 
-Create plots by taxonomic level (genus/species) including gs index against taxa names. Repeat this using a logarithmic scale on the gs index. I applied a log scale because the distribution looked like following the 80/20 rule and it'd be interesting to see the Pareto principle in these data.
+## Create plots by taxonomic level (genus/species) including gs index against taxa names. Repeat this using a logarithmic scale on the gs index. I applied a log scale because the distribution looked like following the 80/20 rule and it'd be interesting to see the Pareto principle in these data.
 ```{r}
 text_size = 11
 
