@@ -82,3 +82,5 @@ for (i in list(c(sp1intersection, sp1.1intersection, sp1.2intersection, sp1.3int
   resident_distr <- rbind(calculateDistribution(i))
 }
 resident_distr 
+
+esto es practica
