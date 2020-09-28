@@ -12,10 +12,7 @@ source("~/data/zool-zost/sjoh4959/projects/0.0_great-speciators/src/0.0_great-sp
 #############################################
 
 load("~/data/zool-zost/sjoh4959/projects/0.0_great-speciators/data/intersection2.RData")
-sp0 <- sf::st_read(dsn = "~/data/zool-zost/sjoh4959/projects/0.0_great-speciators/data/All_Species_Resident_1.2.shp")
-land <- sf::st_read(dsn = "~/data/zool-zost/sjoh4959/projects/0.0_great-speciators/data/everythingisanisland.shp")
-
-sp0intersection <- calculateArea(sp0, land)
+load("~/data/zool-zost/sjoh4959/projects/0.0_great-speciators/data/intersection.RData")
 
 #############################################
 ########## CALCULATE INTERSECTION DATA ######
