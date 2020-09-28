@@ -87,6 +87,8 @@ calculateArea <- function(dataset, landtype) {
     out
 }
 
+#calculateDistribution will calculate the distribution index and it will get ready a dataframe 
+#to join the main subset 
 calculateDistribution <- function(file) {
   list_area <- purrr::map(file, "area")
   #Remove names of species with value 0 (i.e. that have no intersection with the map provided)
