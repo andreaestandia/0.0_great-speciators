@@ -6,7 +6,7 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 options(scipen = 999)
 source("/data/zool-zost/sjoh4959/projects/0.0_great-speciators/src/0.0_great-speciators_source.R")
-
+renv::activate()
 #############################################
 ########## LOAD INTERSECTION DATA ###########
 #############################################
