@@ -77,8 +77,15 @@ rownames(df_island) <- names
 ```
 
 ```{r}
-resident_distr <- data.frame()
-for (i in list(c(sp1intersection, sp1.1intersection, sp1.2intersection, sp1.3intersection, sp1.4intersection))) {
-  resident_distr <- rbind(calculateDistribution(i))
+resident_distr_total <- data.frame(species_name=character(0))
+for (i in c(list(sp0intersection, sp1intersection, sp1.1intersection, sp1.2intersection, sp1.3intersection, sp1.4intersection))) {
+  resident_distr <- calculateDistribution(i)
+  resident_distr_total <- full_join(resident_distr_total,resident_distr, by="species_name")
 }
-resident_distr 
+
+distr_index_final <- resident_distr_total %>% rowwise() %>% 
+    mutate(distr_index = sum(distr_index.x, distr_index.x.x, distr_index.y, distr_index.y.y, distr_index.y.y.y, distr_index.x.x.x, na.rm = TRUE)) %>%  as_tibble() %>% dplyr::select(species_name, distr_index)
+
+test1 <- calculateDistribution(sp1intersection)
+test2 <- calculateDistribution(sp1.1intersection)
+p <- full_join(test1,test2, by="species_name")
