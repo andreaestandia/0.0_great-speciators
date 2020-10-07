@@ -39,6 +39,16 @@ gs_candidates <- checklist %>%
   group_by(species_name,category) %>% 
   filter(category == "subspecies") %>% 
   mutate(occurrences = n()) 
+
+melanesia <- read_csv(file.path(data_path,"nsubsp_melanesia.csv")) %>% 
+  filter(northern_melanesia == 1) %>% 
+  group_by(species_name,category) %>% 
+  filter(category == "subspecies") %>% 
+  mutate(occurrences = n()) %>% 
+  mutate(distr_index_final = distr_index*occurrences) %>% 
+  arrange(desc(distr_index_final)) 
+
+write.csv(melanesia, "test.csv")
 ```
 
 ## Open trait datasets and merge them with the checklist file. Create a new column with great speciator index (number of subspecies/island index; gs index) as described by Mayr and Diamond.
@@ -70,18 +80,19 @@ world <- read_csv(file.path(data_path, "distr_index_total.csv"))
 
 dataset <- left_join(gs_candidates, hwi, by = "species_name") %>% 
   ungroup() %>% 
-  drop_na(island) %>%
-  filter(island != 0) %>% 
-  drop_na(occurrences) %>% 
-  mutate(index = occurrences/island) %>% 
+  #drop_na(island) %>%
+  #filter(island != 0) %>% 
+  #drop_na(occurrences) %>% 
+  #mutate(index = occurrences/island) %>% 
   left_join(traits2, by = "species_name") %>% 
   left_join(traits3, by = "species_name") %>%
-  left_join(melanesia_distributionindex, by = "species_name") %>%
-  left_join(world, by = "species_name") %>%
+  left_join(melanesia, by = "species_name") %>%
+  drop_na(distr_index_final) %>% 
+  #left_join(world, by = "species_name") %>%
   #left_join(netdiv, by= "species_name") %>% 
   clean_names() %>% 
-  distinct(sort_v2019, .keep_all = TRUE) %>% 
-  mutate(distr_index2 = occurrences*distr_index)
+  distinct(sort_v2019, .keep_all = TRUE)# %>% 
+ # mutate(distr_index2 = occurrences_y*distr_index)
 
 ###########################
 ####Genus-level dataset####
@@ -105,21 +116,20 @@ dataset <- left_join(gs_candidates, hwi, by = "species_name") %>%
 text_size = 11
 
  dataset %>%
-  filter(distr_index2!="NA") %>% 
-  filter(distr_index2>1000) %>% 
-  arrange(desc(distr_index2)) %>% 
+  filter(distr_index_final!="NA") %>% 
+  arrange(desc(distr_index_final)) %>% 
+  filter(species_name!="Alcedo atthis") %>% 
   ggplot(aes(
-    x = fct_reorder(species_name, distr_index2),
-    y = distr_index2,
-    color=range
+    x = fct_reorder(species_name, distr_index_final),
+    y = distr_index_final
   )) +
   geom_jitter(alpha = 0.2) +
   theme(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.ticks.x = element_blank(),
-    axis.text.x = element_blank(),
-   # axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.6,hjust=1),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.6,hjust=1),
     axis.ticks.y = element_blank()
   ) + 
   labs(color = "Island index", size= text_size) + labs(y = "Number of subspecies/island index\n", x= "\nSpecies", size= text_size)
@@ -423,6 +433,11 @@ gs_candidate %>%
     axis.text.x = element_text(size= text_size, angle = 90, vjust = 0.6,hjust=1)
   ) + 
   labs(color = "Order", size= text_size) + labs(y = "Number of subspecies\n", x= "\nGenus", size= text_size)
+
+melanesia <- checklist %>% unite("species_name", c(genus,species), sep= " ") %>% 
+left_join(melanesia_distributionindex, checklist, by="species_name") %>% drop_na(distr_index)
+write.csv(melanesia, "melanesiansubsp.csv")
+
 ```
 
 checklist_spcomplex <- read_csv(file.path(data_path,"Clements-Checklist-v2019-August-2019.csv")) %>%  
