@@ -107,3 +107,5 @@ calculateDistribution <- function(file) {
   x <- x %>% unique() %>% arrange(desc(distr_index))
   x
 }
+
+range01 <- function(x, ...){(x - min(x, ...)) / (max(x, ...) - min(x, ...))}
