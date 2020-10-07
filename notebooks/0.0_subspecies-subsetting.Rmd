@@ -48,10 +48,10 @@ gs_candidates <- checklist %>%
 ###########################
 
 hwi <- read_csv(file.path(data_path,"Dataset HWI 2020-04-10.csv"))
-hwi <- clean_names(hwi) %>% 
-  drop_na(island) %>% 
-  filter(island != 0) %>% 
-  mutate(island=1/island)
+hwi <- clean_names(hwi) #%>% 
+  #drop_na(island) %>% 
+  #filter(island != 0) %>% 
+  #mutate(island=1/island)
 #traits1 <- read_csv(file.path(data_path,"Australian_Bird_Data_Version_1.csv")) %>% 
 #  rename(genus = "4_Genus_name_2") %>% 
 #  rename(species = "5_Species_name_2") %>% 
@@ -64,7 +64,9 @@ traits3 <- read_csv(file.path(data_path,"TetraDENSITY_v.1.csv")) %>%
   unite(species_name, c("genus", "species"), sep=" ") %>% 
   filter(class=="Aves")
 
-netdiv$species_name <- gsub("_", " ", netdiv$species_name)
+#netdiv$species_name <- gsub("_", " ", netdiv$species_name)
+
+world <- read_csv(file.path(data_path, "distr_index_total.csv"))
 
 dataset <- left_join(gs_candidates, hwi, by = "species_name") %>% 
   ungroup() %>% 
@@ -74,9 +76,10 @@ dataset <- left_join(gs_candidates, hwi, by = "species_name") %>%
   mutate(index = occurrences/island) %>% 
   left_join(traits2, by = "species_name") %>% 
   left_join(traits3, by = "species_name") %>%
-  left_join(netdiv, by= "species_name") %>% 
+  left_join(melanesia_distributionindex, by = "species_name") %>%
+  left_join(world, by = "species_name") %>%
+  #left_join(netdiv, by= "species_name") %>% 
   clean_names() %>% 
-  left_join(resident_distr, by ="species_name") %>% 
   distinct(sort_v2019, .keep_all = TRUE) %>% 
   mutate(distr_index2 = occurrences*distr_index)
 
