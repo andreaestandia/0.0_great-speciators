@@ -35,45 +35,8 @@ sp3 <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators
 #Land is a shapefile where every closed polygon is an island (e.g. Eurasia would be an island, Efate too, just different sizes) 
 land <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/everythingisanisland.shp")
 southpacific <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/southpacific.shp")
-
-for (i in list(c(sp0, sp1, sp1.1, sp1.2, sp1.3, sp1.4))){
-  calculateArea(i, land)
-}
-
-magic_for(print,progress = TRUE)
-is_magicalized()
-myFiles <- list(sp0, sp1, sp1.1, sp1.2, sp1.3, sp1.4)
-
-for (i in myFiles){
-  southpac_area <- calculateArea(i, southpacific)
-  put(area)
-}
-
-#Calculate total area where a species is present - range size?
-df <- data.frame()
-for (i in 1:length(breeding_intersection)){
-  df <- rbind(df,sum(breeding_intersection[[i]]))
-}
-colnames(df) <- "area"
-names <- names(breeding_intersection)
-rownames(df) <- names 
-df<- rownames_to_column(df)
-
-df_island <- data.frame()
-for (i in 1:length(breeding_intersection_island)){
-  df_island <- rbind(df_island,sum(breeding_intersection_island[[i]]))
-}
-colnames(df_island) <- "area"
-df_island <- rownames_to_column(df_island)
-
-island_index <-left_join(df, df_island, by="rowname") %>% 
-  mutate(isl_index=area.y/area.x) 
-
-write.csv(island_index, "island_index.csv", row.names = FALSE)
-
-names <- names(breeding_intersection_island)
-rownames(df_island) <- names
-
+australasia <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/australasia.shp")
+melanesia <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/melanesia.shp")
 ```
 
 ```{r}
@@ -85,7 +48,4 @@ for (i in c(list(sp0intersection, sp1intersection, sp1.1intersection, sp1.2inter
 
 distr_index_final <- resident_distr_total %>% rowwise() %>% 
     mutate(distr_index = sum(distr_index.x, distr_index.x.x, distr_index.y, distr_index.y.y, distr_index.y.y.y, distr_index.x.x.x, na.rm = TRUE)) %>%  as_tibble() %>% dplyr::select(species_name, distr_index)
-
-test1 <- calculateDistribution(sp1intersection)
-test2 <- calculateDistribution(sp1.1intersection)
 p <- full_join(test1,test2, by="species_name")
