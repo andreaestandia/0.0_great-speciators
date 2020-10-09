@@ -28,416 +28,125 @@ checklist <- read_csv(file.path(data_path,"Clements-Checklist-v2019-August-2019.
   clean_names()  %>% 
   separate(scientific_name, c("genus", "species", "subspecies")) 
 
-# gs_candidates_genus <- checklist %>% 
-#   group_by(genus,category) %>% 
-#   filter(category == "subspecies") %>% 
-#   mutate(occurrences = n()) %>% 
-#   unite(species_name, c("genus", "species"), sep=" ")
-
 gs_candidates <- checklist %>% 
   unite(species_name, c("genus", "species"), sep=" ") %>% 
+  filter(category!="group (polytipic)") %>% 
   group_by(species_name,category) %>% 
   filter(category == "subspecies") %>% 
   mutate(occurrences = n()) 
 
 melanesia <- read_csv(file.path(data_path,"nsubsp_melanesia.csv")) %>% 
   filter(northern_melanesia == 1) %>% 
+  filter(category!="group (polytipic)") %>% 
   group_by(species_name,category) %>% 
   filter(category == "subspecies") %>% 
   mutate(occurrences = n()) %>% 
-  mutate(distr_index_final = distr_index*occurrences) %>% 
+  mutate(distr_index_final =  occurrences*log10(distr_index)) %>% 
   arrange(desc(distr_index_final)) 
 
-write.csv(melanesia, "test.csv")
+australasia <- read_csv(file.path(data_path,"nsubsp_australasia.csv")) %>% 
+  filter(australasia == 1) %>% 
+  filter(category!="group (polytipic)") %>% 
+  group_by(species_name,category) %>% 
+  filter(category == "subspecies") %>% 
+  mutate(occurrences = n()) %>% 
+  mutate(distr_index_final = occurrences*log10(distr_index)) %>% 
+  arrange(desc(distr_index_final))
+
+tip_rates <- read_csv(file.path(data_path,"tiprates.csv")) %>% separate(species_name, c("genus", "species")) %>% unite(species_name, c("genus", "species"), sep=" ") 
 ```
 
-## Open trait datasets and merge them with the checklist file. Create a new column with great speciator index (number of subspecies/island index; gs index) as described by Mayr and Diamond.
+## Open trait datasets and merge them with the checklist file.
 ```{r}
-###########################
-####Species-level dataset####
-###########################
-
 hwi <- read_csv(file.path(data_path,"Dataset HWI 2020-04-10.csv"))
-hwi <- clean_names(hwi) #%>% 
-  #drop_na(island) %>% 
-  #filter(island != 0) %>% 
-  #mutate(island=1/island)
-#traits1 <- read_csv(file.path(data_path,"Australian_Bird_Data_Version_1.csv")) %>% 
-#  rename(genus = "4_Genus_name_2") %>% 
-#  rename(species = "5_Species_name_2") %>% 
-#  unite(species_name, c("genus", "species"), sep=" ")
-traits2 <- read_csv(file.path(data_path,"Bird_Database_Ernest.csv")) %>% 
+hwi <- clean_names(hwi) 
+
+traits1 <- read_csv(file.path(data_path,"Bird_Database_Ernest.csv")) %>% 
   clean_names() %>% 
   unite(species_name, c("genus", "species"), sep=" ")
-traits3 <- read_csv(file.path(data_path,"TetraDENSITY_v.1.csv")) %>% 
+traits2 <- read_csv(file.path(data_path,"TetraDENSITY_v.1.csv")) %>% 
   clean_names() %>% 
   unite(species_name, c("genus", "species"), sep=" ") %>% 
   filter(class=="Aves")
 
-#netdiv$species_name <- gsub("_", " ", netdiv$species_name)
+world <- read_csv(file.path(data_path, "distr_index_total.csv")) 
 
-world <- read_csv(file.path(data_path, "distr_index_total.csv"))
-
-dataset <- left_join(gs_candidates, hwi, by = "species_name") %>% 
+dataset_world <- left_join(gs_candidates, hwi, by = "species_name") %>% 
   ungroup() %>% 
-  #drop_na(island) %>%
-  #filter(island != 0) %>% 
-  #drop_na(occurrences) %>% 
-  #mutate(index = occurrences/island) %>% 
-  left_join(traits2, by = "species_name") %>% 
-  left_join(traits3, by = "species_name") %>%
-  left_join(melanesia, by = "species_name") %>%
+  left_join(traits1, by = "species_name") %>% 
+  left_join(traits2, by = "species_name") %>%
+  left_join(world, by = "species_name") %>%
+  left_join(tip_rates, by="species_name") %>% 
+  mutate(distr_index_final = occurrences*distr_index) %>% 
   drop_na(distr_index_final) %>% 
-  #left_join(world, by = "species_name") %>%
-  #left_join(netdiv, by= "species_name") %>% 
+  clean_names() %>%
+  distinct(sort_v2019, .keep_all = TRUE) %>% 
+  filter(!(order_x %in% c("Procellariiformes", "Suliformes", "Charadriiformes"))) 
+    
+dataset_australasia <- left_join(gs_candidates, hwi, by = "species_name") %>% 
+  ungroup() %>% 
+  left_join(traits1, by = "species_name") %>% 
+  left_join(traits2, by = "species_name") %>%
+  left_join(australasia, by = "species_name") %>%
+  left_join(tip_rates, by="species_name") %>% 
+  drop_na(distr_index_final) %>% 
   clean_names() %>% 
-  distinct(sort_v2019, .keep_all = TRUE)# %>% 
- # mutate(distr_index2 = occurrences_y*distr_index)
+  distinct(sort_v2019, .keep_all = TRUE) %>% 
+  filter(!(order_x %in% c("Procellariiformes", "Suliformes", "Charadriiformes"))) 
 
-###########################
-####Genus-level dataset####
-###########################
-
-# dataset_genus <- left_join(gs_candidates_genus, hwi, by = "species_name") %>% 
-#   ungroup() %>% 
-#   drop_na(island) %>%
-#   filter(island != 0) %>% 
-#   drop_na(occurrences) %>% 
-#   mutate(index = occurrences/island) %>% 
-#   left_join(traits2, by = "species_name") %>% 
-#   full_join(traits3, by = "species_name") %>% 
-#   distinct(sort_v2019, .keep_all = TRUE) %>% 
-#   select(-subspecies.y, -order.y, -family.y, -order.y.y, -class.y, -latitude.y, -class.x, -order.x.x, -habitat.y) %>% 
-#   clean_names()
+dataset_melanesia <- left_join(gs_candidates, hwi, by = "species_name") %>% 
+  ungroup() %>% 
+  left_join(traits1, by = "species_name") %>% 
+  left_join(traits2, by = "species_name") %>%
+  left_join(melanesia, by = "species_name") %>%
+  left_join(tip_rates, by="species_name") %>% 
+  drop_na(distr_index_final) %>% 
+  clean_names() %>% 
+  distinct(sort_v2019, .keep_all = TRUE) %>% 
+  filter(!(order_x %in% c("Procellariiformes", "Suliformes", "Charadriiformes"))) 
 ```
 
-## Create plots by taxonomic level (genus/species) including gs index against taxa names. Repeat this using a logarithmic scale on the gs index. I applied a log scale because the distribution looked like following the 80/20 rule and it'd be interesting to see the Pareto principle in these data.
+## Create plots 
 ```{r}
-text_size = 11
-
- dataset %>%
+plot_australasia <- dataset_melanesia %>%
   filter(distr_index_final!="NA") %>% 
   arrange(desc(distr_index_final)) %>% 
-  filter(species_name!="Alcedo atthis") %>% 
+  #filter(occurrences_y > 2) %>%
+  #filter(species_name!="Alcedo atthis") %>% 
+  #top_n(900, distr_index_final) %>% 
   ggplot(aes(
     x = fct_reorder(species_name, distr_index_final),
-    y = distr_index_final
+    y = distr_index_final,
+    #size=occurrences_y,
+    #color=distr_index
   )) +
-  geom_jitter(alpha = 0.2) +
+  geom_point()+
+  scale_colour_viridis()+
+  #geom_jitter(alpha = 0.2) +
   theme(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.ticks.x = element_blank(),
-    #axis.text.x = element_blank(),
-    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.6,hjust=1),
+    axis.text.x = element_blank(),
+    #axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "bold"),
     axis.ticks.y = element_blank()
   ) + 
-  labs(color = "Island index", size= text_size) + labs(y = "Number of subspecies/island index\n", x= "\nSpecies", size= text_size)
-
-# plot2 <- dataset_genus %>%
-#   drop_na(index) %>% 
-#   separate(species_name, c("genus","species")) %>% 
-#   ggplot(aes(
-#     x = fct_reorder(genus, index),
-#     y = index
-#   )) +
-#   geom_jitter(alpha = 0.2) +
-#   #stat_summary(aes(group = genus),
-#               # geom = "pointrange",
-#                #fun.data = mean_cl_boot,
-#                #size = 1) +
-#   theme(
-#     panel.grid.major = element_blank(),
-#     panel.grid.minor = element_blank(),
-#     axis.text.x = element_blank(),
-#     axis.ticks.y = element_blank(),
-#     axis.ticks.x = element_blank()
-#   ) +  
-#   labs(color = "Order", size= text_size) + labs(y="",x= "\nGenus", size= text_size)
-
-plot3 <- dataset %>%
-  ggplot(aes(
-    x = fct_reorder(species_name, index),
-    y = log(index),
-    color=island
-  )) +
-  scale_color_distiller(type = "div")+
-  geom_jitter(alpha = 0.2) +
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.ticks.x = element_blank(),
-    axis.ticks.y = element_blank(),
-    axis.text.x = element_blank()
-  ) + 
-  labs(color = "Island index", size= text_size) + labs(y = "Number of subspecies/island index\n", x= "\nSpecies", size= text_size)
-
-# plot4 <- dataset_genus %>%
-#   drop_na(index) %>% 
-#   separate(species_name, c("genus","species")) %>% 
-#   ggplot(aes(
-#     x = fct_reorder(genus, index),
-#     y = log(index)
-#   )) +
-#   geom_jitter(alpha = 0.2) +
-#   #stat_summary(aes(group = genus),
-#               # geom = "pointrange",
-#                #fun.data = mean_cl_boot,
-#                #size = 1) +
-#   theme(
-#     panel.grid.major = element_blank(),
-#     panel.grid.minor = element_blank(),
-#     axis.text.x = element_blank(),
-#     axis.ticks.x = element_blank(),
-#     axis.ticks.y = element_blank()
-#   ) +  
-#   labs(color = "Order", size= text_size) + labs(y= "",x= "\nGenus", size= text_size)
+  guides(colour = guide_legend(title="Area (km2)", size=text_size), size = guide_legend(title="Number of subspecies",  size=text_size)) + labs(y = "Great speciator index\n", x= "\nSpecies", size= text_size, title = "Northern Melanesia", face= "bold")
 
 
-plot_distribution_gs_island0 <- plot1 + plot3 + plot_annotation(tag_levels = 'A')
+plot1 <- plot_world+ plot_australasia+plot_melanesia+plot_layout(ncol=1)+plot_annotation(tag_levels = 'A')
 
 ggsave(
-  plot = plot_distribution_gs_island0,
-  filename = "plot_distribution_gs_island0.png",
+  plot = plot1,
+  filename = "plot.pdf",
   path = figures_path,
-  device = "png",
+  device = "pdf",
   scale=1,
-  width = 32,
-  height = 18,
+  width = 24,
+  height = 45,
   dpi = 400,
   units = "cm"
 )
-
-dataset %>%
-  drop_na(index) %>% 
-  #filter(index > 50) %>% 
-  ggplot(aes(
-    x = fct_reorder(species_name, index),
-    y = index
-  )) +
-  geom_point() +
-   stat_summary(aes(group = species_name),
-               geom = "pointrange",
-               fun.data = mean_cl_boot,
-              size = 1)+
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.6,hjust=1),
-    axis.ticks.x = element_blank()
-  ) + 
-  labs(color = "Order", size= text_size) + labs(y = "Number of subspecies/island index\n", x= "\n\nSpecies", size= text_size)
-
-
-summary_sp<- dataset %>% 
-  arrange(desc(index)) %>% 
-  select(species_name,subspecies_x,range,occurrences,island,range_size,territoriality, diet, habitat_x,latitude_x,longitude,annual_precip,longevity_y,density,index,order_x,family_x)
-
-write_csv(summary_sp, "summary_sp.csv")
-write_csv(summary_genus, "summary_genus.csv")
-
-ggsave(
-  plot = plot_subspecies,
-  filename = "plot_subspecies.png",
-  path = figures_path,
-  device = "png",
-  scale=1,
-  width = 32,
-  height = 18,
-  dpi = 400,
-  units = "cm"
-)
-
-island <- test %>%
-  ggplot(aes(
-    x = occurrences,
-    y = mean_island,
-    color = order.x
-  )) +
-  geom_jitter(alpha = 0.2) +
-  stat_summary(aes(group = genus),
-               geom = "pointrange",
-               fun.data = mean_cl_boot,
-               size = 1) +
-  scale_color_manual(values = pal)+
-  theme(
-    panel.background = element_blank(),
-    axis.text.x = element_text(size= text_size,hjust=1), axis.ticks = element_blank()
-  ) + 
-  labs(color = "Order", size= text_size) + labs(y = "Island\n", x= "\nGenus", size= text_size) +
-  geom_text(data = data.frame(x = 137.95, y = 0.55, 
-    label = "Zosterops"), mapping = aes(x = x, y = y, label = label), 
-    size = 3.86, angle = 0L, lineheight = 1L, hjust = 0.5, 
-    vjust = 0.5, colour = "black", family = "sans", fontface = "plain", 
-    inherit.aes = FALSE, show.legend = FALSE) + 
-  geom_text(data = data.frame(x = 158.664072527113, y = 0.166285278621342, 
-    label = "Turdus"), mapping = aes(x = x, y = y, label = label), 
-    size = 3.86605783866058, angle = 0L, lineheight = 1L, hjust = 0.5, 
-    vjust = 0.5, colour = "black", family = "sans", fontface = "plain", 
-    inherit.aes = FALSE, show.legend = FALSE)+
-  geom_text(data = data.frame(x = 119.920292557237, y = 0.205878401088552, 
-    label = "Accipiter"), mapping = aes(x = x, y = y, label = label), 
-    size = 3.86605783866058, angle = 0L, lineheight = 1L, hjust = 0.5, 
-    vjust = 0.5, colour = "black", family = "sans", fontface = "plain", 
-    inherit.aes = FALSE, show.legend = FALSE) +
-   geom_text(data = data.frame(x = 82.6547244981612, y = 0.643732949423344, 
-    label = "Ptilinopus"), mapping = aes(x = x, y = y, label = label), 
-    size = 3.86605783866058, angle = 0L, lineheight = 1L, hjust = 0.5, 
-    vjust = 0.5, colour = "black", family = "sans", fontface = "plain", 
-    inherit.aes = FALSE, show.legend = FALSE) + 
-  geom_text(data = data.frame(x = 93.595621923942, y = 0.462070375095616, 
-    label = "Rhipidura"), mapping = aes(x = x, y = y, label = label), 
-    size = 3.86605783866058, angle = 0L, lineheight = 1L, hjust = 0.5, 
-    vjust = 0.5, colour = "black", family = "sans", fontface = "plain", 
-    inherit.aes = FALSE, show.legend = FALSE) +
- geom_text(data = data.frame(x = 108.707784274434, y = 0.429463688319146, 
-    label = "Dicaeum"), mapping = aes(x = x, y = y, label = label), 
-    size = 3.86605783866058, angle = 0L, lineheight = 1L, hjust = 0.5, 
-    vjust = 0.5, colour = "black", family = "sans", fontface = "plain", 
-    inherit.aes = FALSE, show.legend = FALSE) + 
-  geom_text(data = data.frame(x = 82.0582633812524, y = 0.392199787739082, 
-    label = "Coracina"), mapping = aes(x = x, y = y, label = label), 
-    size = 3.86605783866058, angle = 0L, lineheight = 1L, hjust = 0.5, 
-    vjust = 0.5, colour = "black", family = "sans", fontface = "plain", 
-    inherit.aes = FALSE, show.legend = FALSE) + 
-  geom_text(data = data.frame(x = 122.283428545347, y = 0.340961150861004, 
-    label = "Pachycephala"), mapping = aes(x = x, y = y, label = label), 
-    size = 3.86605783866058, angle = 0L, lineheight = 1L, hjust = 0L, 
-    vjust = 0.5, colour = "black", family = "sans", fontface = "plain", 
-    inherit.aes = FALSE, show.legend = FALSE) + 
-  geom_text(data = data.frame(x = 120.21973861852, y = 0.122033867585211, 
-    label = "Phylloscopus"), mapping = aes(x = x, y = y, label = label), 
-    size = 3.86605783866058, angle = 0L, lineheight = 1L, hjust = 0L, 
-    vjust = 0.5, colour = "black", family = "sans", fontface = "plain", 
-    inherit.aes = FALSE, show.legend = FALSE)
-  
-island
-
-ggsave(
-  plot = island,
-  filename = "plot_island.png",
-  path = figures_path,
-  device = "png",
-  scale=1,
-  width = 32,
-  height = 18,
-  dpi = 400,
-  units = "cm"
-)
-
-ggannotate::ggannotate(island)
-```
-
-```{r}
-latdata <- read_csv(file.path(data_path, "birds_latdata.csv"))
-gs_candidates_2 <- full_join(gs_candidates, latdata, by="species_name")
-
-write.csv(test, "test.csv", row.names = F)
-```
-
-```{r}
-polytype <- checklist %>% 
-  filter(category == "group (polytypic)") %>% 
-  separate(scientific_name, c("genus", "species", "subspecies")) %>% 
-  unite(species_name, c("genus", "species"), sep=" ")
-
-polytype <- left_join(polytype, hwi, by="species_name") %>% 
-  separate(species_name, c("genus","species"))
-
-n_polytypic <- polytype %>% 
-  group_by(genus) %>% 
-  count(category) %>% 
-  mutate(occurrences = n())
-
-n_polytypic <- checklist %>% 
-  group_by(genus,category) %>% 
-  filter(category == "group (polytypic)") %>% 
-  mutate(occurrences = n()) %>% 
-  filter(occurrences > 4)
-
-n_polytypic %>%
-  ggplot(aes(
-    x = fct_reorder(genus, occurrences),
-    y = occurrences,
-    color = order
-  )) +
-  geom_jitter(alpha = 0.1) +
-  stat_summary(aes(group = genus),
-               geom = "pointrange",
-               fun.data = mean_cl_boot,
-               size = 1) +
-  theme(
-    panel.background = element_blank(),
-    axis.text.x = element_text( angle = 90, vjust = 0.6,hjust=1)
-  ) + 
-  labs(color = "Order") + labs(y = "Number of subspecies\n", x= "\nGenus")
-
-```
-
-```{r}
-checklist <- read_csv(file.path(data_path,"Clements-Checklist-v2019-August-2019.csv")) %>%  
-  clean_names() %>% 
-  filter(category != "species", category != "group (monotypic)") %>% 
-  mutate(sp_complex = grepl("\\[.+?\\]", scientific_name)) 
-
-checklist <- read_csv(file.path(data_path,"Clements-Checklist-v2019-August-2019.csv")) %>%  
-  clean_names()  %>% 
-  separate(scientific_name, c("genus", "species", "subspecies")) %>% 
-  unite(species_name, c("genus", "species"), sep=" ")
-
-subspecies_by_species <- checklist %>% 
-  group_by(species_name,category) %>% 
-  filter(category == "subspecies") %>% 
-  count(species_name) 
-
-subspecies_by_genus <- checklist %>% 
-  group_by(genus,category) %>% 
-  filter(category == "subspecies") %>% 
-  count(genus) 
-
-gs_candidates <- checklist %>% 
-  group_by(genus,category) %>% 
-  filter(category == "subspecies") %>% 
-  mutate(occurrences_genus = n()) %>% 
-  unite(scientific_name, c("genus", "species", "subspecies"), sep=" ")
-
-gs_candidates_sp <- checklist %>% 
-  group_by(species_name,category) %>% 
-  filter(category == "subspecies") %>% 
-  mutate(occurrences_sp = n()) %>% 
-  unite(scientific_name, c("species_name", "subspecies"), sep=" ")
-
-gs_candidate <- left_join(gs_candidates,gs_candidates_sp, by="scientific_name") %>% 
-  mutate(ratio=(occurrences_sp/occurrences_genus)) %>% 
-  filter(ratio<0.2)
-  
-
-gs_candidate %>% 
-  separate(scientific_name, c("genus", "species", "subspecies")) %>% 
-  group_by(genus) %>% 
-  mutate(occurrences_sp =mean(occurrences_sp)) %>% 
-  mutate(ratio=(occurrences_sp/occurrences_genus)) %>% 
-  filter(occurrences_genus > 50) %>% 
-  ggplot(aes(
-    x = fct_reorder(genus, ratio),
-    y = ratio,
-    color = order.x
-  )) +
-  geom_jitter(alpha = 0.2) +
-  stat_summary(aes(group = genus),
-               geom = "pointrange",
-               fun.data = mean_cl_boot,
-               size = 1) +
-  theme(
-    panel.background = element_blank(),
-    axis.text.x = element_text(size= text_size, angle = 90, vjust = 0.6,hjust=1)
-  ) + 
-  labs(color = "Order", size= text_size) + labs(y = "Number of subspecies\n", x= "\nGenus", size= text_size)
-
-melanesia <- checklist %>% unite("species_name", c(genus,species), sep= " ") %>% 
-left_join(melanesia_distributionindex, checklist, by="species_name") %>% drop_na(distr_index)
-write.csv(melanesia, "melanesiansubsp.csv")
-
 ```
 
 checklist_spcomplex <- read_csv(file.path(data_path,"Clements-Checklist-v2019-August-2019.csv")) %>%  
