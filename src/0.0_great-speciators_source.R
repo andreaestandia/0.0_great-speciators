@@ -53,7 +53,7 @@ suppressPackageStartupMessages({
   library(magicfor)
 })
 
-
+text_size = 11
 # --------------------------------------------------------------------------
 # PATHS
 # --------------------------------------------------------------------------
@@ -96,7 +96,7 @@ calculateDistribution <- function(file) {
   #Calculate index
   y = NULL
   for (sp in list_area) {
-      tmp <- sum(1 / sp) * length(sp)
+      tmp <- sum(1/sp) * length(sp)
       y <- rbind(y, tmp)
   }
   y <- as.data.frame(y)
