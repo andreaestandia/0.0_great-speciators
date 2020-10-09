@@ -10,3 +10,5 @@ data
 *.RData
 *.Ruserdata
 *.RDataTmp
+/reports/
+reports
