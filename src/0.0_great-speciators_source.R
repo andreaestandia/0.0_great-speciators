@@ -51,6 +51,7 @@ suppressPackageStartupMessages({
   library(foreach)
   library(doParallel)
   library(magicfor)
+  library(viridis)
 })
 
 text_size = 11
@@ -107,5 +108,3 @@ calculateDistribution <- function(file) {
   x <- x %>% unique() %>% arrange(desc(distr_index))
   x
 }
-
-range01 <- function(x, ...){(x - min(x, ...)) / (max(x, ...) - min(x, ...))}
