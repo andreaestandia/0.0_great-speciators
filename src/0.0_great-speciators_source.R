@@ -52,6 +52,7 @@ suppressPackageStartupMessages({
   library(doParallel)
   library(magicfor)
   library(viridis)
+  library(gghighlight)
 })
 
 text_size = 11
@@ -97,7 +98,7 @@ calculateDistribution <- function(file) {
   #Calculate index
   y = NULL
   for (sp in list_area) {
-      tmp <- sum(1/sp) * length(sp)
+      tmp <- abs(sum(1 / log(sp)) * log(length(sp)))
       y <- rbind(y, tmp)
   }
   y <- as.data.frame(y)
@@ -108,3 +109,19 @@ calculateDistribution <- function(file) {
   x <- x %>% unique() %>% arrange(desc(distr_index))
   x
 }
+
+calculateNpolygon <- function(dataset, landtype) {
+  out <- list()
+  for (i in dataset$SCINAME) {
+    out[[i]] <- dataset %>% filter(SCINAME==i) %>% 
+      st_buffer(dist = 0.0001, nQuadSegs=1) %>% 
+      st_intersection(landtype, proj4string = "+init=epsg:4326") %>%
+      st_cast("MULTIPOLYGON") %>%  st_cast("POLYGON", warn=F) %>% 
+      mutate(npoly=length(geometry))
+  }
+  out
+}
+  
+
+
+range01 <- function(x){(x-min(x))/(max(x)-min(x))}
