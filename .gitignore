@@ -12,3 +12,4 @@ data
 *.RDataTmp
 /reports/
 reports
+*.csv
