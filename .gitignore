@@ -13,3 +13,5 @@ data
 /reports/
 reports
 *.csv
+/reports/docs
+
