@@ -1,0 +1,665 @@
+---
+title: "0.0_what_is_an_island"
+author: "Andrea Estandia"
+date: "17/12/2020"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  github_document:
+  toc: true
+toc_depth: 4
+editor_options:
+chunk_output_type: console
+---
+  
+```{r setup, echo=FALSE}
+# Knitr settings: 
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = TRUE,
+	warning = TRUE
+)
+options(scipen = 999)
+```
+
+```{r, echo=FALSE}
+source("./src/0.0_great-speciators_source.R")
+```
+
+Open a map with every piece of land as an individual polygon and select everything smaller than Madagascar
+```{r}
+land <-
+  sf::st_read(dsn = file.path(data_path, "shapefiles/everythingisanisland.shp")) %>%
+  mutate(area = st_area(.) / 1000000) %>% drop_units() %>% filter(area < 587000)
+```
+
+Open species distribution (requested from Birdlife)
+```{r}
+resident <-
+  sf::st_read(dsn = file.path(data_path, "shapefiles/All_Species_Resident.shp"))
+breeding <-
+  sf::st_read(dsn = file.path(data_path, "shapefiles/All_Species_Breeding.shp"))
+```
+
+Calculate number of polygons in breeding and resident datasets
+```{r}
+breeding_npoly <- calculateNpolygon(breeding, land)
+y = NULL
+for (i in breeding_npoly) {
+    tmp <- i %>% dplyr::select(SCINAME, npoly) %>%
+      as.data.frame() %>%
+      distinct(SCINAME, .keep_all = TRUE) %>%
+      dplyr::select(-geometry)
+    y <- rbind(y, tmp)
+    breeding_npoly <- y %>% rename(species_name = SCINAME)
+    breeding_npoly
+}
+
+resident_npoly <- calculateNpolygon(resident, land)
+y = NULL
+for (i in resident_npoly) {
+    tmp <- i %>% dplyr::select(SCINAME, npoly) %>%
+      as.data.frame() %>%
+      distinct(SCINAME, .keep_all = TRUE) %>%
+      dplyr::select(-geometry)
+    y <- rbind(y, tmp)
+    resident_npoly <- y %>% rename(species_name = SCINAME)
+    resident_npoly
+  }
+npoly <- full_join(breeding_npoly, resident_npoly, by="species_name") %>% mutate(npoly=rowSums(cbind(npoly.x, npoly.y), na.rm = TRUE)) %>% dplyr::select(species_name, npoly)
+write.csv(npoly, "npoly.csv", row.names = F)
+```
+
+```{r}
+for (i in sp_distributions){
+  assign("var", i)
+npoly <- calculateNpolygon(i, land)
+}
+
+y = NULL
+for (i in resident_npoly) {
+    tmp <- i %>% dplyr::select(SCINAME, npoly) %>%
+      as.data.frame() %>%
+      distinct(SCINAME, .keep_all = TRUE) %>%
+      dplyr::select(-geometry)
+    y <- rbind(y, tmp)
+    resident_npoly <- y %>% rename(species_name = SCINAME)
+    resident_npoly
+  }
+```
+Before doing anything else I need to add a "synonyms" column, adapting the current taxonomy for every species
+
+List of species with different names are present if you filter the 'synonym' column and only keep values that don't match NA
+
+Calculate mean, median, min, max and sd of 19 climatic variables for each species
+```{r}
+#Open bioclimatic variables
+bio <- getData("worldclim", var = "bio", res = 2.5, path = file.path(data_path,"biovariables"))
+alt <- getData("worldclim", var = "alt", res = 2.5, path = file.path(data_path,"biovariables"))
+
+#Calculate intersection between species distribution and islands
+calculateIntersect <- function(dataset, land) {
+  out <- list()
+  for (i in dataset$SCINAME) {
+    out[[i]] <- dataset %>% filter(SCINAME==i) %>%
+      st_buffer(dist = 0.0001, nQuadSegs = 1) %>%
+      st_intersection(land, proj4string = "+init=epsg:4326") %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON")
+  }
+  out
+}
+
+resident_npoly <- calculateIntersect(resident, land)
+
+##Remove those list objects that are empty (e.g. seabirds that haven't intersected with an island)
+resident_npoly_complete <- list()
+for (i in resident_npoly){
+  if(length(i$OBJECTID)>0){
+    resident_npoly_complete[[as.character(unique(i$SCINAME))]] <- i
+  }
+}
+
+#19 WorldClim Biovariables
+list_biovar <- as.list(bio)
+
+datalist = list()
+for (var in list_biovar){
+  var_name <- var@data@names
+  datalist[[as.character(var_name)]]  <- calculateBioclimate(resident_npoly_complete, var)
+}
+biovariables = plyr::join_all(datalist[1:19])
+
+#Altitude
+
+altitude <- calculateBioclimate(resident_npoly_complete, alt)
+
+ ##These species are not present in the main dataset because their taxonomy is complicated so re-do with this names
+list_outliers <- c("Hypotaenidia philippensis","Todiramphus chloris","Pericrocotus flammeus","Kittacincla malabarica","Pardaliparus elegans","Artamus leucoryn","Chalcites minutillus","Heleia squamiceps","Poliolophus urostictus","Edolisoma coerulescens","Pachycephala pectoralis","Pellorneum ruficeps","Hirundapus cochinchinensis","Nesoenas picturatus","Malacocincla abbotti","Hypotaenidia torquata","Kittacincla luzoniensis","Charadrius mongolus","Heleia goodfellowi","Heleia javanica","Passerella iliaca","Fregata minor","Ceyx erithaca","Ramphiculus leclancheri","Microptilotis analogus","Melloria quoyi","Phaethon rubricauda","Leuconotopicus villosus","Calcarius lapponicus","Onychoprion anaethetus","Fratercula arctica","Porphyrio melanops","Erythrura cyaneovirens")
+
+resident <- resident %>% filter(SCINAME %in% list_outliers)
+
+resident_npoly_outliers <- calculateIntersect(resident, land)
+
+npoly_outliers <- list()
+for (i in resident_npoly_outliers){
+  if(length(i$OBJECTID)>0){
+    npoly_outliers[[as.character(unique(i$SCINAME))]] <- i
+  }
+}
+
+#OR
+
+npoly_outliers <- list()
+for (i in resident_npoly_complete){
+  if(unique(i$SCINAME) %in% list_outliers == TRUE){
+    npoly_outliers[[as.character(unique(i$SCINAME))]] <- i
+  }
+}
+
+list_biovar <- as.list(bio)
+
+datalist = list()
+for (var in list_biovar){
+  var_name <- var@data@names
+  datalist[[as.character(var_name)]]  <- calculateBioclimate(npoly_outliers, var)
+}
+biovariables = plyr::join_all(datalist[1:19])
+
+```
+
+Calculate maximum distance between furthest polygons
+```{r}
+resident_npoly_complete <- list()
+for (i in resident_npoly){
+  if(length(i$OBJECTID)>0){
+    resident_npoly_complete[[as.character(unique(i$SCINAME))]] <- i
+  }
+}
+
+#Dataset should be a list where all elements have at least one polygon. The list
+#should be the intersection between the land and the distribution of the species
+
+calculateMaxDistPoly <- function(dataset) {
+  max=data.frame(matrix(ncol=1, nrow=1))
+  colnames(max)<-"max_dist_poly"
+  for (i in dataset) {
+    tmp <- i %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON", warn=F) %>%
+      st_centroid() %>%
+      st_distance() %>%
+      max() %>%
+      drop_units()
+    max <- as.data.frame(rbind(max,tmp))
+  }
+
+  max <- max[-1,] %>% as.data.frame() %>% rename(max_dist_poly=".")
+  max <- cbind(max,names(dataset)) %>%
+    mutate(species_name=names(dataset)) %>%
+    dplyr::select(max_dist_poly,species_name) %>%
+    distinct(species_name, .keep_all = TRUE)
+  max
+}
+
+
+calculateMedianDist <- function(dataset) {
+  median=data.frame(matrix(ncol=1, nrow=1))
+  colnames(median)<-"median_dist_poly"
+  for (i in dataset) {
+    tmp <- i %>% 
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON", warn=F) %>%
+      st_centroid() %>%
+      st_distance() %>%
+      median() %>%
+      drop_units()
+    median <- as.data.frame(rbind(median,tmp))
+  }
+  
+  median <- median[-1,] %>% as.data.frame() %>% rename(median_dist_poly=".")
+  median <- cbind(median,names(dataset)) %>%
+    mutate(species_name=names(dataset)) %>%
+    dplyr::select(median_dist_poly,species_name) %>%
+    distinct(species_name, .keep_all = TRUE)
+  median
+}
+
+calculateSDdistances <- function(dataset) {
+  sd=data.frame(matrix(ncol=1, nrow=1))
+  colnames(sd)<-"sd_dist_poly"
+  for (i in dataset) {
+    tmp <- i %>% 
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON", warn=F) %>%
+      st_centroid() %>%
+      st_distance() %>%
+      sd() 
+    sd <- as.data.frame(rbind(sd,tmp))
+  }
+  
+  sd <- sd[-1,] %>% as.data.frame() %>% rename(sd_dist_poly=".")
+  sd <- cbind(sd,names(dataset)) %>%
+    mutate(species_name=names(dataset)) %>%
+    dplyr::select(sd_dist_poly,species_name) %>%
+    distinct(species_name, .keep_all = TRUE)
+  sd
+}
+
+calculateArea <- function(dataset) {
+  area=data.frame(matrix(ncol=1, nrow=1))
+  colnames(area)<-"area_dist_poly"
+  for (i in dataset) {
+    tmp <- i %>% 
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON", warn=F) %>%
+      st_area(.)/1000000
+    median <- as.data.frame(rbind(area,tmp))
+  }
+  
+  area <- area[-1,] %>% as.data.frame() %>% rename(area_dist_poly=".")
+  area <- cbind(area,names(dataset)) %>%
+    mutate(species_name=names(dataset)) %>%
+    dplyr::select(area_dist_poly,species_name) %>%
+    distinct(species_name, .keep_all = TRUE)
+  area
+}
+
+
+max_dist_poly <- calculateMaxDistPoly(max_dist_poly)
+```
+
+Combine the number of polygons occupied by the species with the expl variables datasets
+```{r}
+npolygons <- read_csv(file.path(data_path,"npoly/npoly.csv"))
+checklist <- read_csv(file.path(data_path,"dfs/Clements-Checklist-v2019-August-2019.csv")) %>%  
+  clean_names() %>% separate(scientific_name, c("genus", "species", "subspecies")) %>% 
+  unite("species_name", c(genus,species), sep=" ") %>% dplyr::select(category, species_name, subspecies, range, family, order)
+tip_rates <- read_csv(file.path(data_path,"dfs/tiprates.csv")) %>%  rename(species_name=name_pigot) %>%  separate(species_name, c("genus", "species")) %>% unite(species_name, c("genus", "species"), sep="_")
+iucn <- read_csv(file.path(data_path,"dfs/Handbook of the Birds of the World and BirdLife International digital checklist of the birds of the world_Version_4.csv"))
+hwi <- read_csv(file.path(data_path,"dfs/dataset_3.csv")) %>%  clean_names() 
+traits1 <- read_csv(file.path(data_path,"dfs/dataset_2.csv")) %>% 
+  clean_names() %>% 
+  unite(species_name, c("genus", "species"), sep=" ")
+traits2 <- read_csv(file.path(data_path,"dfs/dataset_1.csv")) %>% 
+  clean_names() %>% 
+  unite(species_name, c("genus", "species"), sep=" ") 
+clim_var <- read_csv(file.path(data_path,"dfs/bioclimate.csv"))
+clim_var2 <- read_csv(file.path(data_path,"dfs/bioclimate_outliers.csv"))
+isolation <- read_csv(file.path(data_path,"dfs/isolation.csv"))
+niche <-read_csv(file.path(data_path,"dfs/diet_realm_Pigot2020.csv")) %>% rename(species_name=tree_name) %>% 
+  separate(species_name, c("genus", "species")) %>% unite(species_name, c("genus", "species"), sep=" ")
+migr<- read_csv(file.path(data_path,"dfs/mig_beh.csv")) %>%  clean_names()
+#############################################################
+
+# dataset <- full_join(npolygons, checklist, by = "species_name") %>%
+#   left_join(hwi, by="species_name") %>%
+#   left_join(traits1, by = "species_name") %>% 
+#   left_join(traits2, by = "species_name") %>%
+#   left_join(iucn, by="species_name") %>% 
+#   left_join(tip_rates, by="species_name") %>% 
+#   clean_names() %>%
+#   distinct(sort_v2019, .keep_all = TRUE)
+
+###The new dataset below is the same one as the one above but the taxonomy has been reviewed
+
+# dataset2 <- read_csv(file.path(data_path, "dataset_complete.csv")) %>% 
+#   left_join(clim_var, by="species_name") %>% 
+#   left_join(isolation, by ="species_name") %>% 
+#   left_join(niche, by="species_name") %>% 
+#   filter(islands==1) %>% 
+#   group_by(species_name,category) %>% 
+#   filter(category == "subspecies") %>% 
+#   mutate(occurrences = n()) %>% 
+#   filter(occurrences>1) %>% 
+#   mutate(gs_estandia =   occurrences/log(npoly)) %>% 
+#   mutate(gs_md =   occurrences/npoly) %>% 
+#   arrange(desc(gs_index))
+# dataset$gs_estandia <- stdize(dataset$gs_index, na.rm=T)
+
+##Final dataset
+
+dataset <- read_csv(file.path(data_path, "dfs/dataset_final.csv")) %>% separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c("genus", "species"), sep=" ")
+
+dataset <- left_join(dataset, guys_final, by="tree_name")
+guys_final <- guys_final %>% rename(tree_name=species_name) 
+dataset_tiprates %>%
+  ggplot(aes(x = netdiv,
+             y = value))+
+             # size=occurrences,
+             #color=distr_index)) +
+             geom_jitter(col = "#3ea6c2")
+```
+
+Intersectiong grid-species distribution
+```{r}
+grid <- sf::st_read(dsn = file.path(data_path,"shapefiles/ne_50m_graticules_1.shp"))
+land <- sf::st_read(dsn = file.path(data_path,"shapefiles/ne_10m_land.shp"))
+
+zlat <- sp1.3 %>%  filter(SCINAME=="Zosterops lateralis" | SCINAME=="Dulus dominicus")
+
+alt <- getData("worldclim", var="alt", res=2.5, path =file.path(data_path,"biovariables"))
+bio <- getData("worldclim", var="bio", res=2.5, path =file.path(data_path,"biovariables"))
+
+calculateIntersect <- function(dataset, land) {
+  out <- list()
+  for (i in dataset$SCINAME) {
+    out[[i]] <- dataset %>% filter(SCINAME==i) %>% 
+      st_buffer(dist = 0.0001, nQuadSegs = 1) %>%
+      st_intersection(land, proj4string = "+init=epsg:4326") %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON") 
+  }
+  out
+}
+
+zlat_intersection <- calculateIntersect(zlat, land)
+```
+
+Load tree and select tips based on tree names we have
+```{r}
+p <- read.csv(file.path(data_path, "dfs/dataset_final.csv")) %>% filter(islands==1) %>% filter(gs_index<=4.3) %>% mutate(gs_md=occurrences/npoly)
+
+p <- p %>% filter(tree_name!="NA") 
+
+names <- as.character(unique(p$tree_name))
+
+
+tree <- read.tree("/home/zoo/sjoh4959/Documents/programs/bamm-master/build/hackett.tre")
+
+tree <- keep.tip(tree, names)
+
+gs_estandia <- p$gs_estandia
+names(gs_estandia) <- unique(p$tree_name)
+
+#p <- p %>% distinct(tree_name, .keep_all = TRUE)
+#matrix <- as.matrix(p$gs_estandia)
+#rownames(matrix) <- p$tree_name
+
+#Is there phylogenetics signal?
+phylosignal <- phylosig(tree,matrix,test=TRUE, method="lambda")  
+phylosignal
+
+obj<-contMap(tree,gs_estandia)
+
+plotTree.barplot(tree,matrix, tip.label=NULL)
+dotTree(tree,p$gs_norm)
+is.na(p$gs_norm)
+
+clade_member <- clade.members.list(tree, tips = FALSE, tip.labels = TRUE)
+clade_member
+
+plot(obj, type="fan", show.tip.label=F)
+arc.cladelabels(text="clade A",node=598)
+
+plot(obj)
+
+lastPP<-get("last_plot.phylo",envir=.PlotPhyloEnv)
+xlim<-lastPP$x.lim
+ylim<-lastPP$y.lim
+plot(obj,xlim=xlim,ylim=ylim,ftype="off")
+lastPP<-get("last_plot.phylo",envir=.PlotPhyloEnv)
+tips <- c("Zosterops_lateralis", "Coracina_tenuirostris", "Nectarinia_aspasia",
+          "Turdus_poliocephalus", "Accipiter_novaehollandiae", "Coereba_flaveola", "Hypothymis_azurea",
+          "Tanysiptera_galatea", "Lalage_maculosa", "Petroica_multicolor", "Gallirallus_philippensis",
+          "Certhidea_olivacea", "Dicaeum_trigonostigma", "Uria_aalge")
+
+xpos<-lastPP$xx[sapply(tips,function(x,y) which(y==x),
+                       y=obj$tree$tip.label)]
+ypos<-lastPP$yy[sapply(tips,function(x,y) which(y==x),
+                       y=obj$tree$tip.label)]
+text(xpos,ypos,gsub("_"," ",tips),pos=4,font=0.5)
+ 
+
+
+```
+
+Calculations about GSI at the genus and family levels
+```{r}
+sp_genus1 <- dataset %>% 
+  distinct(species_name, .keep_all = TRUE)  %>% 
+  separate(species_name, c("genus", "species")) %>%
+  group_by(genus) %>% 
+  mutate(sp_in_genus = n()) %>% 
+  distinct(genus, .keep_all = TRUE) %>% 
+  dplyr::select(genus, sp_in_genus)
+
+sp_genus2 <- dataset %>% 
+  distinct(species_name, .keep_all = TRUE)  %>% 
+  separate(species_name, c("genus", "species")) %>%
+  group_by(genus) %>% 
+  summarise(mean=mean(gs_estandia, na.rm=T), sd=sd(gs_estandia, na.rm=T), median=median(gs_estandia, na.rm=T))
+
+sp_genus_total <- full_join(sp_genus1,sp_genus2,by="genus")
+
+
+sp_family1 <- dataset %>% 
+  distinct(species_name, .keep_all = TRUE)  %>% 
+  group_by(family) %>% 
+  mutate(sp_in_family = n()) %>% 
+  distinct(family, .keep_all = TRUE) %>% 
+  dplyr::select(family, sp_in_family)
+
+sp_family2 <- dataset %>% 
+  distinct(species_name, .keep_all = TRUE)  %>% 
+  group_by(family) %>% 
+  summarise(mean=mean(gs_estandia, na.rm=T), sd=sd(gs_estandia, na.rm=T), median=median(gs_estandia, na.rm=T))
+
+sp_family_total <- full_join(sp_family1,sp_family2,by="family")
+
+sp_family_total %>% 
+  filter(sd!="NA") %>% 
+  filter(sp_in_family>2) %>% 
+  ggplot(aes(
+    x=fct_reorder(family,median),
+    y=median,
+    size=sd
+  ))+
+  geom_jitter() +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    legend.position = "none",
+    axis.ticks.y = element_blank()
+  )
+```
+
+Plots
+```{r}
+dataset %>%
+  filter(gs_norm >=0.5) %>% #| occurrences >= 7) %>%
+  filter(occurrences>4) %>% 
+  #filter(species_name!="Alcedo atthis") %>% 
+  ggplot(aes(
+    x = fct_reorder(species_name, gs_norm),
+    y = gs_norm,
+    size=npoly,
+    #color=distr_index
+  )) +
+  geom_point(col="#3ea6c2")+
+  scale_color_brewer(palette="Dark2")+
+  geom_hline(yintercept=0.33, linetype="dashed", col= "darkgrey")+
+  #geom_jitter(alpha = 0.2) +
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "Great Speciator Index\n", x= "\n", title="Great speciators (GSI > 0.33 regardless of # of subspecies or 7 subspecies or more)")
+
+dataset %>%
+  #filter(gs_norm >=0.4) %>% #| occurrences >= 7) %>%
+  #filter(occurrences>4) %>% 
+  #filter(species_name!="Alcedo atthis") %>% 
+  ggplot(aes(
+    x = range_size,
+    y = isolation
+    #color=distr_index
+  )) +
+  geom_point(col="#3ea6c2")+
+  scale_color_brewer(palette="Dark2")+
+  geom_hline(yintercept=0.33, linetype="dashed", col= "darkgrey")+
+  #geom_jitter(alpha = 0.2) +
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) 
+ 
+p <- dataset %>% distinct(species_name, .keep_all = T) %>%
+  filter(islands == 1) %>%
+  ggplot(aes(x = occurrences, y = log(npoly))) +
+  geom_jitter(col="#3ea6c2", alpha=0.7)+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(y="log(# islands)", x="subspecies")
+p
+
+anim <- p +
+  transition_time(gs_estandia, range=c(1,0))+shadow_mark()+ggtitle('Great Speciator Index = {frame_time}')
+
+anim_save("first_saved_animation.gif", animation = anim, duration = 10, fps = 10, width = 900, height = 400, renderer = gifski_renderer())
+
+```
+
+```{r}
+load("/home/zoo/sjoh4959/resident_npoly.RData")
+world_poly <- resident_npoly
+melanesia_poly <- resident_npoly
+length(melanesia_poly)
+
+melanesia_poly_complete <- list()
+for (i in melanesia_poly){
+  if(length(i$OBJECTID)>0){
+    melanesia_poly_complete[[as.character(unique(i$SCINAME))]] <- i
+  }
+}
+
+world_poly_complete <- list()
+for (i in world_poly){
+  if(length(i$OBJECTID)>0){
+    world_poly_complete[[as.character(unique(i$SCINAME))]] <- i
+  }
+}
+
+
+npoly_melanesia <- read_csv(file.path(data_path,"/npoly/npoly_melanesia.csv"))
+
+melanesia <- read.csv(file.path(data_path, "dfs/melanesia_final.csv"))
+
+npoly_world <- read_csv(file.path(data_path,"/npoly/npoly_world_complete.csv")) 
+
+world <- read.csv(file.path(data_path, "dfs/dataset_final.csv"))
+
+list_sp_missing_melanesia <- npoly_melanesia$species_name[!unique(npoly_melanesia$species_name) %in% unique(melanesia$species_name)]
+
+list_sp_missing_world <- npoly_world$species_name[!unique(npoly_world$species_name) %in% unique(world$species_name)]
+
+missing_melanesia <- npoly_melanesia %>% filter(species_name %in% list_sp_missing_melanesia) %>% left_join(checklist, by ="species_name") %>% left_join(hwi, by="species_name") %>%
+   left_join(traits1, by = "species_name") %>% 
+   left_join(traits2, by = "species_name") %>%
+   left_join(iucn, by="species_name") %>% 
+   left_join(tip_rates, by="species_name") %>% 
+   clean_names() %>% left_join(niche, by="species_name") %>% dplyr::select(-temp_range, -annual_precip,-annual_temp)
+
+
+melanesia_final <- full_join(melanesia, missing_melanesia) %>% unite(scientific_name, c("species_name","subspecies"), sep=" ") %>% distinct(scientific_name, .keep_all=TRUE) %>%separate(scientific_name, c("genus", "species", "subspecies"), sep=" ") %>% unite(species_name, c("genus","species"))  
+
+missing_world <- npoly_world %>% filter(species_name %in% list_sp_missing_world) %>% left_join(checklist, by ="species_name") %>% left_join(hwi, by="species_name") %>%
+   left_join(traits1, by = "species_name") %>% 
+   left_join(traits2, by = "species_name") %>%
+   left_join(iucn, by="species_name") %>% 
+   left_join(tip_rates, by="species_name") %>% 
+   clean_names() %>% left_join(niche, by="species_name") %>% dplyr::select(-temp_range, -annual_precip,-annual_temp)
+
+
+missing_world <- full_join(world, missing_world) %>% unite(scientific_name, c("species_name","subspecies"), sep=" ") %>% distinct(scientific_name, .keep_all=TRUE) %>%separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c("genus","species"))  
+
+write.csv(missing_world, "world_updated.csv", row.names = F)
+```
+
+```{r}
+melanesia <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/melanesia_updated.csv")
+melanesia <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/world_updated_2.csv")
+
+melanesia_filtered<- melanesia %>% 
+  filter(is.na(occurrences)) %>% 
+  filter(category == "subspecies") %>% 
+  filter(islands == 1) %>% 
+  group_by(species_name) %>% 
+  mutate(occurrences2 = n()) %>% 
+  right_join(melanesia) %>% 
+  mutate(nsubsp = coalesce(occurrences, occurrences2)) %>% 
+  dplyr::select(-occurrences, -occurrences2)
+
+write.csv(melanesia_filtered, "world_filtered.csv")
+
+world_filtered <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/world_filtered.csv") %>% 
+  mutate(gs_md=nsubsp/npoly) %>% mutate(gs_estandia=nsubsp/log(npoly)) %>% left_join(migr, by ="species_name") %>% left_join(tip_rates, by="species_name") %>% mutate(div_rate=coalesce(netdiv.x, netdiv.y)) %>% dplyr::select(-netdiv.x,-netdiv.y)
+world_filtered$gs_index <- stdize(world_filtered$gs_estandia, na.rm=T)
+melanesia_filtered <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/melanesia_filtered.csv") %>% 
+  mutate(gs_md=nsubsp/npoly) %>% left_join(migr, by ="species_name") %>% left_join(tip_rates, by="species_name") %>% mutate(div_rate=coalesce(netdiv.x, netdiv.y)) %>% dplyr::select(-netdiv.x,-netdiv.y)
+
+write.csv(melanesia_filtered, "melanesia_filtered3.csv", row.names = F)
+
+melanesia_filtered %>%
+  #filter(islands==1) %>% 
+  #filter(category=="subspecies") %>% 
+  #filter(gs_md <1) %>% 
+  #filter(gs_estandia > 3) %>% 
+  distinct(species_name,.keep_all = T) %>% 
+  ggplot(aes(
+    x = prec_wet_median,
+    y = nsubsp
+  )) +
+  geom_jitter()+
+  #scale_color_brewer(palette="Dark2")+
+  geom_hline(yintercept=0.33, linetype="dashed", col= "darkgrey")+geom_smooth(method="loess")+
+  #geom_jitter(alpha = 0.2) +
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) 
+ 
+melanesia_nsub <- world_filtered %>% dplyr::select(nsubsp)
+
+hist(melanesia_filtered$nsubsp, breaks=25)
+
+bioclim <- read_csv("/home/zoo/sjoh4959/bioclimate_melanesia2.csv") %>% separate(species_name, c("genus", "species")) %>% unite(species_name, c("genus", "species"), sep="_")
+
+melanesia_filtered <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/melanesia_filtered2.csv") %>% left_join(bioclim)
+
+melanesia_filtered
+
+```

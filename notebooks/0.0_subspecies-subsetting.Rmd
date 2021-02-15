@@ -36,25 +36,26 @@ gs_candidates <- checklist %>%
   mutate(occurrences = n()) 
 
 melanesia <- read_csv(file.path(data_path,"melanesia.csv")) %>% 
+  full_join(x, by ="species_name") %>% 
   filter(northern_melanesia == 1) %>% 
   filter(category!="group (polytypic)") %>% 
   group_by(species_name,category) %>% 
   filter(category == "subspecies") %>% 
   mutate(occurrences = n()) %>% 
   filter(occurrences>1) %>% 
-  mutate(distr_index_final =  occurrences*distr_index_abs) %>% 
-  arrange(desc(distr_index_final)) 
+  mutate(gs_index =   occurrences/npoly) %>% 
+  arrange(desc(gs_index)) 
 
-australasia <- read_csv(file.path(data_path,"australasia.csv")) %>% 
+australasia <- read_csv(file.path(data_path,"australasia_complete.csv")) %>% 
   filter(australasia == 1) %>% 
   filter(category!="group (polytypic)") %>% 
   group_by(species_name,category) %>% 
   filter(category == "subspecies") %>% 
   mutate(occurrences = n()) %>% 
-  filter(occurrences>1) %>% 
-  mutate(distr_index_final = occurrences*distr_index_abs) %>% 
+  filter(occurrences>4) %>% 
+  mutate(distr_index_final = occurrences/npoly) %>% 
   arrange(desc(distr_index_final))
-
+write.csv(melanesia, "melanesia_updated.csv")
 #p <- full_join(melanesia1, melanesia_resident, melanesia_breeding, by="species_name")
 #q <- full_join(australasia1, australasia_resident, australasia_breeding, by="species_name")
 
@@ -82,14 +83,14 @@ traits2 <- read_csv(file.path(data_path,"TetraDENSITY_v.1.csv")) %>%
 world <- read_csv(file.path(data_path, "world.csv")) 
 
 dataset_world <- left_join(gs_candidates, hwi, by = "species_name") %>% 
+  full_join(x, by="species_name") %>% 
   ungroup() %>% 
   left_join(traits1, by = "species_name") %>% 
   left_join(traits2, by = "species_name") %>%
-  left_join(world, by = "species_name") %>%
   left_join(iucn, by="species_name") %>% 
-  filter(occurrences>1) %>% 
-  mutate(distr_index_final = occurrences*distr_index) %>% 
-  drop_na(distr_index_final) %>% 
+  filter(occurrences>7) %>% 
+  mutate(gs_index = occurrences/npoly) %>% 
+  drop_na(gs_index) %>% 
   clean_names() %>%
   distinct(sort_v2019, .keep_all = TRUE)# %>% 
   #filter(!(order_x %in% c("Procellariiformes", "Suliformes", "Charadriiformes"))) 
@@ -766,6 +767,12 @@ dataset_model2 %>%
   add_residual_draws(model2) %>%
   ggplot(aes(x = .row, y = .residual)) +
   stat_pointinterval()
+
+y <- full_join(y_breeding, y, by="SCINAME")
+world <- y %>%  mutate(species_name=SCINAME) %>%  mutate(npoly=rowSums(cbind(npoly.x, npoly.y), na.rm = TRUE)) %>% dplyr::select(-c(npoly.x,npoly.y, SCINAME))
+world_complete <- full_join(dataset_world, world, by="species_name")
+write.csv(dataset_world,"world_complete.csv")
+
 ```
 
 checklist_spcomplex <- read_csv(file.path(data_path,"Clements-Checklist-v2019-August-2019.csv")) %>%  

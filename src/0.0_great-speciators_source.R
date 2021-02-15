@@ -53,6 +53,7 @@ suppressPackageStartupMessages({
   library(magicfor)
   library(viridis)
   library(gghighlight)
+  library(units)
 })
 
 text_size = 11
@@ -60,7 +61,7 @@ text_size = 11
 # PATHS
 # --------------------------------------------------------------------------
 
-data_path <- file.path(getwd(), "data", "raw")
+data_path <- file.path(getwd(), "data")
 figures_path <- file.path(getwd(), "reports", "plots")
 
 if (!dir.exists(data_path)) {
@@ -121,7 +122,219 @@ calculateNpolygon <- function(dataset, landtype) {
   }
   out
 }
+
+calculateBioclimate <- function(dataset, var) {
+  result = NULL
+  for (species in dataset) {
+    tmp <- crop(var, species) %>% mask(species)
+    dataset <-
+      as.data.frame(values(tmp)) %>% drop_na()
+    colnames(dataset) <- "species"
+    result[[as.character(unique(species$SCINAME))]] <-
+      dataset %>% summarise(
+        mean = mean(species),
+        sd = sd(species),
+        max = max(species),
+        min = min(species),
+        median = median(species)
+      )
+  }
+  var_name <- var@data@names
+  result_var <-
+    data.frame(matrix(unlist(result), nrow = length(result), byrow = T))
+  colnames(result_var) <- c(paste0(var_name,"_mean"), paste0(var_name,"_sd"),  paste0(var_name,"_max"),  paste0(var_name,"_min"),  paste0(var_name,"_median"))
+  rownames(result_var) <- names(result)
+  final_result <- result_var %>% rownames_to_column(var = "species_name")
+  print(final_result)
+}
+
+calculateCentrality<- function(dataset) {
+  var=NULL
+  mean=NULL
+  median=NULL
+  for (i in dataset$SCINAME) {
+    tmp <- dataset %>% filter(SCINAME==i) %>%  
+      st_cast("MULTIPOLYGON") %>%  
+      st_cast("POLYGON", warn=F) %>% 
+      st_centroid() %>% 
+      st_distance() %>%
+      drop_units() %>% 
+      na_if(0) %>%
+      analyze.stuff::colMins(na.rm=T) %>% 
+      as.numeric() %>% 
+      var()
+    
+    var <- as.data.frame(rbind(var,tmp))
+  }
+  var_x <- cbind(var,dataset$SCINAME) %>%  
+    mutate(variance=V1) %>% 
+    mutate(species_name=dataset$SCINAME) %>% 
+    dplyr::select(variance,species_name) %>% 
+    distinct(species_name)
   
+  for (i in dataset$SCINAME) {
+    tmp <- dataset %>% filter(SCINAME==i) %>%  
+      st_cast("MULTIPOLYGON") %>%  
+      st_cast("POLYGON", warn=F) %>% 
+      st_centroid() %>% 
+      st_distance() %>%
+      drop_units() %>% 
+      na_if(0) %>%
+      analyze.stuff::colMins(na.rm=T) %>% 
+      as.numeric() %>% 
+      median()
+    
+    median <- as.data.frame(rbind(median,tmp))
+  }
+  median_x <- cbind(median,dataset$SCINAME) %>%  
+    mutate(median=V1) %>% 
+    mutate(species_name=dataset$SCINAME) %>% 
+    dplyr::select(median,species_name) %>% 
+    distinct(species_name)
+  
+  for (i in dataset$SCINAME) {
+    tmp <- dataset %>% filter(SCINAME==i) %>%  
+      st_cast("MULTIPOLYGON") %>%  
+      st_cast("POLYGON", warn=F) %>% 
+      st_centroid() %>% 
+      st_distance() %>%
+      drop_units() %>% 
+      na_if(0) %>%
+      analyze.stuff::colMins(na.rm=T) %>% 
+      as.numeric() %>% 
+      mean()
+    
+    mean <- as.data.frame(rbind(mean,tmp))
+  }
+  mean_x <- cbind(mean,dataset$SCINAME) %>%  
+    mutate(mean=V1) %>% 
+    mutate(species_name=dataset$SCINAME) %>% 
+    dplyr::select(mean,species_name) %>% 
+    distinct(species_name)
+  
+  centrality <- mean_x %>% full_join(median_x, by="species_name") %>% full_join(var_x, by ="species_name")
+  return(centrality)
+  return(mean)
+  return(median)
+  return(var)
+}
+
+calculateVariance<- function(dataset) {
+  var=NULL
+  for (i in dataset$SCINAME) {
+    tmp <- dataset %>% filter(SCINAME==i) %>%  
+                  st_cast("MULTIPOLYGON") %>%  
+                  st_cast("POLYGON", warn=F) %>% 
+                  st_centroid() %>% 
+                  st_distance() %>%
+                  drop_units() %>% 
+                  na_if(0) %>%
+                  colMeans(na.rm=T) %>% 
+                  as.numeric() %>% 
+                  var()
+
+    var <- as.data.frame(rbind(var,tmp))
+  }
+  var <- cbind(var,dataset$SCINAME) %>%  
+    mutate(variance=V1) %>% 
+    mutate(species_name=dataset$SCINAME) %>% 
+    dplyr::select(variance,species_name)
+  return(var)
+}
+
+calculateMean<- function(dataset) {
+  mean=NULL
+  for (i in dataset$SCINAME) {
+    tmp <- dataset %>% filter(SCINAME==i) %>%  
+      st_cast("MULTIPOLYGON") %>%  
+      st_cast("POLYGON", warn=F) %>% 
+      st_centroid() %>% 
+      st_distance() %>%
+      drop_units() %>% 
+      na_if(0) %>%
+      colMeans(na.rm=T) %>% 
+      as.numeric() %>% 
+      mean()
+    
+    mean <- as.data.frame(rbind(mean,tmp))
+  }
+  mean <- cbind(mean,dataset$SCINAME) %>%  
+    mutate(mean=V1) %>% 
+    mutate(species_name=dataset$SCINAME) %>% 
+    dplyr::select(mean,species_name) %>% 
+    distinct(species_name, .keep_all = TRUE)
+  mean
+}
+
+
+calculateMedian <- function(dataset) {
+  median=NULL
+  for (i in dataset$SCINAME) {
+    tmp <- dataset %>% filter(SCINAME==i) %>%  
+      st_cast("MULTIPOLYGON") %>%  
+      st_cast("POLYGON", warn=F) %>% 
+      st_centroid() %>% 
+      st_distance() %>%
+      drop_units() %>% 
+      na_if(0) %>%
+      robustbase::colMedians(na.rm=T) %>% 
+      as.numeric() %>% 
+      median()
+    
+    median <- as.data.frame(rbind(median,tmp))
+  }
+  median <- cbind(median,dataset$SCINAME) %>%  
+    mutate(median=V1) %>% 
+    mutate(species_name=dataset$SCINAME) %>% 
+    dplyr::select(median,species_name) %>% 
+    distinct(species_name, .keep_all = TRUE)
+  median
+}
+
+calculateMax <- function(dataset) {
+  max=NULL
+  for (i in dataset$SCINAME) {
+    tmp <- dataset %>% filter(SCINAME==i) %>%  
+      st_cast("MULTIPOLYGON") %>%  
+      st_cast("POLYGON", warn=F) %>% 
+      st_centroid() %>% 
+      st_distance() %>%
+      max() %>% 
+      drop_units() 
+    max <- as.data.frame(rbind(max,tmp))
+  }
+  
+  max <- cbind(max,dataset$SCINAME) %>%  
+    mutate(max=V1) %>% 
+    mutate(species_name=dataset$SCINAME) %>% 
+    dplyr::select(max,species_name) %>% 
+    distinct(species_name, .keep_all = TRUE)
+  max
+}
+
+calculateMin <- function(dataset) {
+  min=NULL
+  for (i in dataset$SCINAME) {
+    tmp <- dataset %>% filter(SCINAME==i) %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON", warn=F) %>%
+      st_centroid() %>%
+      st_distance() %>%
+      sd() %>%
+      drop_units()
+    min <- as.data.frame(rbind(min,tmp))
+  }
+  
+  min <- cbind(min,dataset$SCINAME) %>%
+    mutate(min=V1) %>%
+    mutate(species_name=dataset$SCINAME) %>%
+    dplyr::select(min,species_name) %>%
+    distinct(species_name, .keep_all = TRUE)
+  min
+}
 
 
 range01 <- function(x){(x-min(x))/(max(x)-min(x))}
+stdize = function(x, ...) {(x - min(x, ...)) / (max(x, ...) - min(x, ...))}
+
+

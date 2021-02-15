@@ -35,7 +35,10 @@ sp3 <- sf::st_read(dsn = file.path(data_path,"map/All_Species_NonBreeding.shp"))
 #Land is a shapefile where every closed polygon is an island (e.g. Eurasia would be an island, Efate too, just different sizes) 
 land <- sf::st_read(dsn = file.path(data_path,"/map/everythingisanisland.shp"))
 australasia <- sf::st_read(dsn = file.path(data_path,"map/australasia.shp"))
-melanesia <- sf::st_read(dsn = file.path(data_path,"map/melanesia.shp"))
+melanesia <- sf::st_read(dsn = "/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/data/shapefiles/melanesia.shp")
+species <-  sf::st_read(dsn = "/home/zoo/sjoh4959/test_network.shp")
+
+zlat %>% st_cast("MULTIPOLYGON") %>%  st_cast("POLYGON", warn=F) %>% st_centroid() %>% st_distance() %>% na_if(0) %>%  colMins(.,na.rm=T)
 
 ```
 

@@ -574,6 +574,13 @@
       "Repository": "CRAN",
       "Hash": "4adaf6b01b41f243ba0c62801de3331e"
     },
+    "gghighlight": {
+      "Package": "gghighlight",
+      "Version": "0.3.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "58f845f7658236684f19e715d87bb2d1"
+    },
     "gginnards": {
       "Package": "gginnards",
       "Version": "0.0.3",
@@ -723,10 +730,10 @@
     },
     "igraph": {
       "Package": "igraph",
-      "Version": "1.2.5",
+      "Version": "1.2.6",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "3878c30ce67cdb7f2d7f72554e37f476"
+      "Hash": "7b1f856410253d56ea67ad808f7cdff6"
     },
     "ini": {
       "Package": "ini",
@@ -853,6 +860,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "fc1c91e2e8d9e1fc932e75aa1ed989b7"
+    },
+    "lwgeom": {
+      "Package": "lwgeom",
+      "Version": "0.2-5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "cf96b08482dfbed1b7ab7d0ba4395077"
     },
     "magicfor": {
       "Package": "magicfor",
@@ -1481,6 +1495,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "0bc90078aeee42f2520b1d0a33bd6758"
+    },
+    "viridis": {
+      "Package": "viridis",
+      "Version": "0.5.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "6f6b49e5b3b5ee5a6d0c28bf1b4b9eb3"
     },
     "viridisLite": {
       "Package": "viridisLite",
