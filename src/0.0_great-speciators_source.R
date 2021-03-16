@@ -18,6 +18,7 @@
 suppressPackageStartupMessages({
   library(tidyverse)
   library(brms)
+  library(phyr)
   library(modelr)
   library(scales)
   library(devtools)
@@ -75,6 +76,8 @@ if (!dir.exists(figures_path)) {
 # --------------------------------------------------------------------------
 # FUNCTIONS
 # --------------------------------------------------------------------------
+
+stdize = function(x, ...) {(x - min(x, ...)) / (max(x, ...) - min(x, ...))}
 #calculateArea goes through every species in a shapefile and intersects their distribution with the
 #chosen land (everythingisanisland.shp corresponds to every closed polygon on earth, southpacific to the southpacific). It calculates the area of distribution
 #within each polygon and returns this. If you run sum(df$area) you can get the total area of distribution of that species.

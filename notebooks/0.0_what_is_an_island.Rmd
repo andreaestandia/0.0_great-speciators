@@ -78,7 +78,8 @@ npoly <- calculateNpolygon(i, land)
 
 y = NULL
 for (i in resident_npoly) {
-    tmp <- i %>% dplyr::select(SCINAME, npoly) %>%
+    tmp <- i %>% mutate(npoly=length(geometry)) %>% 
+      dplyr::select(SCINAME, npoly) %>%
       as.data.frame() %>%
       distinct(SCINAME, .keep_all = TRUE) %>%
       dplyr::select(-geometry)
@@ -172,7 +173,7 @@ Calculate maximum distance between furthest polygons
 ```{r}
 resident_npoly_complete <- list()
 for (i in resident_npoly){
-  if(length(i$OBJECTID)>0){
+  if(length(i$OBJECTID)>0 && length(i$OBJECTID)<5000){
     resident_npoly_complete[[as.character(unique(i$SCINAME))]] <- i
   }
 }
@@ -225,6 +226,7 @@ calculateMedianDist <- function(dataset) {
   median
 }
 
+
 calculateSDdistances <- function(dataset) {
   sd=data.frame(matrix(ncol=1, nrow=1))
   colnames(sd)<-"sd_dist_poly"
@@ -254,7 +256,7 @@ calculateArea <- function(dataset) {
       st_cast("MULTIPOLYGON") %>%
       st_cast("POLYGON", warn=F) %>%
       st_area(.)/1000000
-    median <- as.data.frame(rbind(area,tmp))
+    area <- as.data.frame(rbind(area,tmp))
   }
   
   area <- area[-1,] %>% as.data.frame() %>% rename(area_dist_poly=".")
@@ -265,73 +267,10 @@ calculateArea <- function(dataset) {
   area
 }
 
-
 max_dist_poly <- calculateMaxDistPoly(max_dist_poly)
 ```
 
-Combine the number of polygons occupied by the species with the expl variables datasets
-```{r}
-npolygons <- read_csv(file.path(data_path,"npoly/npoly.csv"))
-checklist <- read_csv(file.path(data_path,"dfs/Clements-Checklist-v2019-August-2019.csv")) %>%  
-  clean_names() %>% separate(scientific_name, c("genus", "species", "subspecies")) %>% 
-  unite("species_name", c(genus,species), sep=" ") %>% dplyr::select(category, species_name, subspecies, range, family, order)
-tip_rates <- read_csv(file.path(data_path,"dfs/tiprates.csv")) %>%  rename(species_name=name_pigot) %>%  separate(species_name, c("genus", "species")) %>% unite(species_name, c("genus", "species"), sep="_")
-iucn <- read_csv(file.path(data_path,"dfs/Handbook of the Birds of the World and BirdLife International digital checklist of the birds of the world_Version_4.csv"))
-hwi <- read_csv(file.path(data_path,"dfs/dataset_3.csv")) %>%  clean_names() 
-traits1 <- read_csv(file.path(data_path,"dfs/dataset_2.csv")) %>% 
-  clean_names() %>% 
-  unite(species_name, c("genus", "species"), sep=" ")
-traits2 <- read_csv(file.path(data_path,"dfs/dataset_1.csv")) %>% 
-  clean_names() %>% 
-  unite(species_name, c("genus", "species"), sep=" ") 
-clim_var <- read_csv(file.path(data_path,"dfs/bioclimate.csv"))
-clim_var2 <- read_csv(file.path(data_path,"dfs/bioclimate_outliers.csv"))
-isolation <- read_csv(file.path(data_path,"dfs/isolation.csv"))
-niche <-read_csv(file.path(data_path,"dfs/diet_realm_Pigot2020.csv")) %>% rename(species_name=tree_name) %>% 
-  separate(species_name, c("genus", "species")) %>% unite(species_name, c("genus", "species"), sep=" ")
-migr<- read_csv(file.path(data_path,"dfs/mig_beh.csv")) %>%  clean_names()
-#############################################################
-
-# dataset <- full_join(npolygons, checklist, by = "species_name") %>%
-#   left_join(hwi, by="species_name") %>%
-#   left_join(traits1, by = "species_name") %>% 
-#   left_join(traits2, by = "species_name") %>%
-#   left_join(iucn, by="species_name") %>% 
-#   left_join(tip_rates, by="species_name") %>% 
-#   clean_names() %>%
-#   distinct(sort_v2019, .keep_all = TRUE)
-
-###The new dataset below is the same one as the one above but the taxonomy has been reviewed
-
-# dataset2 <- read_csv(file.path(data_path, "dataset_complete.csv")) %>% 
-#   left_join(clim_var, by="species_name") %>% 
-#   left_join(isolation, by ="species_name") %>% 
-#   left_join(niche, by="species_name") %>% 
-#   filter(islands==1) %>% 
-#   group_by(species_name,category) %>% 
-#   filter(category == "subspecies") %>% 
-#   mutate(occurrences = n()) %>% 
-#   filter(occurrences>1) %>% 
-#   mutate(gs_estandia =   occurrences/log(npoly)) %>% 
-#   mutate(gs_md =   occurrences/npoly) %>% 
-#   arrange(desc(gs_index))
-# dataset$gs_estandia <- stdize(dataset$gs_index, na.rm=T)
-
-##Final dataset
-
-dataset <- read_csv(file.path(data_path, "dfs/dataset_final.csv")) %>% separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c("genus", "species"), sep=" ")
-
-dataset <- left_join(dataset, guys_final, by="tree_name")
-guys_final <- guys_final %>% rename(tree_name=species_name) 
-dataset_tiprates %>%
-  ggplot(aes(x = netdiv,
-             y = value))+
-             # size=occurrences,
-             #color=distr_index)) +
-             geom_jitter(col = "#3ea6c2")
-```
-
-Intersectiong grid-species distribution
+Intersecting grid-species distribution
 ```{r}
 grid <- sf::st_read(dsn = file.path(data_path,"shapefiles/ne_50m_graticules_1.shp"))
 land <- sf::st_read(dsn = file.path(data_path,"shapefiles/ne_10m_land.shp"))
@@ -410,8 +349,6 @@ ypos<-lastPP$yy[sapply(tips,function(x,y) which(y==x),
                        y=obj$tree$tip.label)]
 text(xpos,ypos,gsub("_"," ",tips),pos=4,font=0.5)
  
-
-
 ```
 
 Calculations about GSI at the genus and family levels
@@ -546,120 +483,3 @@ anim_save("first_saved_animation.gif", animation = anim, duration = 10, fps = 10
 
 ```
 
-```{r}
-load("/home/zoo/sjoh4959/resident_npoly.RData")
-world_poly <- resident_npoly
-melanesia_poly <- resident_npoly
-length(melanesia_poly)
-
-melanesia_poly_complete <- list()
-for (i in melanesia_poly){
-  if(length(i$OBJECTID)>0){
-    melanesia_poly_complete[[as.character(unique(i$SCINAME))]] <- i
-  }
-}
-
-world_poly_complete <- list()
-for (i in world_poly){
-  if(length(i$OBJECTID)>0){
-    world_poly_complete[[as.character(unique(i$SCINAME))]] <- i
-  }
-}
-
-
-npoly_melanesia <- read_csv(file.path(data_path,"/npoly/npoly_melanesia.csv"))
-
-melanesia <- read.csv(file.path(data_path, "dfs/melanesia_final.csv"))
-
-npoly_world <- read_csv(file.path(data_path,"/npoly/npoly_world_complete.csv")) 
-
-world <- read.csv(file.path(data_path, "dfs/dataset_final.csv"))
-
-list_sp_missing_melanesia <- npoly_melanesia$species_name[!unique(npoly_melanesia$species_name) %in% unique(melanesia$species_name)]
-
-list_sp_missing_world <- npoly_world$species_name[!unique(npoly_world$species_name) %in% unique(world$species_name)]
-
-missing_melanesia <- npoly_melanesia %>% filter(species_name %in% list_sp_missing_melanesia) %>% left_join(checklist, by ="species_name") %>% left_join(hwi, by="species_name") %>%
-   left_join(traits1, by = "species_name") %>% 
-   left_join(traits2, by = "species_name") %>%
-   left_join(iucn, by="species_name") %>% 
-   left_join(tip_rates, by="species_name") %>% 
-   clean_names() %>% left_join(niche, by="species_name") %>% dplyr::select(-temp_range, -annual_precip,-annual_temp)
-
-
-melanesia_final <- full_join(melanesia, missing_melanesia) %>% unite(scientific_name, c("species_name","subspecies"), sep=" ") %>% distinct(scientific_name, .keep_all=TRUE) %>%separate(scientific_name, c("genus", "species", "subspecies"), sep=" ") %>% unite(species_name, c("genus","species"))  
-
-missing_world <- npoly_world %>% filter(species_name %in% list_sp_missing_world) %>% left_join(checklist, by ="species_name") %>% left_join(hwi, by="species_name") %>%
-   left_join(traits1, by = "species_name") %>% 
-   left_join(traits2, by = "species_name") %>%
-   left_join(iucn, by="species_name") %>% 
-   left_join(tip_rates, by="species_name") %>% 
-   clean_names() %>% left_join(niche, by="species_name") %>% dplyr::select(-temp_range, -annual_precip,-annual_temp)
-
-
-missing_world <- full_join(world, missing_world) %>% unite(scientific_name, c("species_name","subspecies"), sep=" ") %>% distinct(scientific_name, .keep_all=TRUE) %>%separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c("genus","species"))  
-
-write.csv(missing_world, "world_updated.csv", row.names = F)
-```
-
-```{r}
-melanesia <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/melanesia_updated.csv")
-melanesia <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/world_updated_2.csv")
-
-melanesia_filtered<- melanesia %>% 
-  filter(is.na(occurrences)) %>% 
-  filter(category == "subspecies") %>% 
-  filter(islands == 1) %>% 
-  group_by(species_name) %>% 
-  mutate(occurrences2 = n()) %>% 
-  right_join(melanesia) %>% 
-  mutate(nsubsp = coalesce(occurrences, occurrences2)) %>% 
-  dplyr::select(-occurrences, -occurrences2)
-
-write.csv(melanesia_filtered, "world_filtered.csv")
-
-world_filtered <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/world_filtered.csv") %>% 
-  mutate(gs_md=nsubsp/npoly) %>% mutate(gs_estandia=nsubsp/log(npoly)) %>% left_join(migr, by ="species_name") %>% left_join(tip_rates, by="species_name") %>% mutate(div_rate=coalesce(netdiv.x, netdiv.y)) %>% dplyr::select(-netdiv.x,-netdiv.y)
-world_filtered$gs_index <- stdize(world_filtered$gs_estandia, na.rm=T)
-melanesia_filtered <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/melanesia_filtered.csv") %>% 
-  mutate(gs_md=nsubsp/npoly) %>% left_join(migr, by ="species_name") %>% left_join(tip_rates, by="species_name") %>% mutate(div_rate=coalesce(netdiv.x, netdiv.y)) %>% dplyr::select(-netdiv.x,-netdiv.y)
-
-write.csv(melanesia_filtered, "melanesia_filtered3.csv", row.names = F)
-
-melanesia_filtered %>%
-  #filter(islands==1) %>% 
-  #filter(category=="subspecies") %>% 
-  #filter(gs_md <1) %>% 
-  #filter(gs_estandia > 3) %>% 
-  distinct(species_name,.keep_all = T) %>% 
-  ggplot(aes(
-    x = prec_wet_median,
-    y = nsubsp
-  )) +
-  geom_jitter()+
-  #scale_color_brewer(palette="Dark2")+
-  geom_hline(yintercept=0.33, linetype="dashed", col= "darkgrey")+geom_smooth(method="loess")+
-  #geom_jitter(alpha = 0.2) +
-  theme(
-    plot.title = element_text(family = "Ubuntu", size=text_size),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.ticks.x = element_blank(),
-    #axis.text.x = element_blank(),
-    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
-    axis.text.y = element_text(family="Ubuntu"),
-    axis.title.x = element_text(family="Ubuntu"),
-    axis.title.y = element_text(family="Ubuntu"),
-    axis.ticks.y = element_blank()) 
- 
-melanesia_nsub <- world_filtered %>% dplyr::select(nsubsp)
-
-hist(melanesia_filtered$nsubsp, breaks=25)
-
-bioclim <- read_csv("/home/zoo/sjoh4959/bioclimate_melanesia2.csv") %>% separate(species_name, c("genus", "species")) %>% unite(species_name, c("genus", "species"), sep="_")
-
-melanesia_filtered <- read_csv("/home/zoo/sjoh4959/Documents/projects/0.0_great-speciators/melanesia_filtered2.csv") %>% left_join(bioclim)
-
-melanesia_filtered
-
-```
