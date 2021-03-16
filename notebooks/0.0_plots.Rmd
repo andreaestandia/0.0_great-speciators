@@ -1,0 +1,690 @@
+---
+title: "0.0_regression.Rmd"
+author: "Andrea Estandia<br>"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  github_document:
+  toc: true
+toc_depth: 4
+editor_options:
+  chunk_output_type: console
+---
+  <br>
+  
+```{r setup, echo=FALSE}
+# Knitr settings: 
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+options(scipen = 999)
+```
+
+```{r, echo=FALSE}
+source("./src/0.0_great-speciators_source.R")
+```
+
+```{r}
+total_world <- read_csv(file.path(data_path, "dfs/worldd.csv")) %>% 
+  mutate(rel_island_size = log(area)/log(npoly)) %>% 
+  mutate(rel_island_size=na_if(rel_island_size, Inf)) %>% 
+  mutate(rel_island_size=na_if(rel_island_size, -Inf)) %>% 
+  mutate(gs_estandia =   nsubsp/log(npoly)) %>% 
+  mutate(gs_estandia=na_if(gs_estandia, Inf)) %>% 
+  mutate(gs_estandia=na_if(gs_estandia, -Inf)) %>%
+  mutate(gs_md =   nsubsp/npoly) 
+stdize = function(x, ...) {(x - min(x, ...)) / (max(x, ...) - min(x, ...))}
+total_world$rel_island_size <- stdize(total_world$rel_island_size, na.rm=TRUE)
+total_world$gs_index <- stdize(total_world$gs_estandia, na.rm=TRUE)
+
+world_plot <- total_world %>%
+  filter(nsubsp>=4) %>%
+  filter(gs_index>0.22) %>% 
+  ggplot(aes(
+    x = fct_reorder(species_name, gs_index),
+    y = gs_index,
+    size=nsubsp
+  )) +
+  geom_point(col="#3ea6c2")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "Great Speciator Index (n_subspecies/log(n_islands))\n", x= "\n", title="Worldwide")
+
+total_melanesia <- read_csv(file.path(data_path, "dfs/total_melanesia.csv")) %>% 
+  mutate(rel_island_size = log(total_area)/log(npoly)) %>% 
+  mutate(rel_island_size=na_if(rel_island_size, Inf)) %>% 
+  mutate(rel_island_size=na_if(rel_island_size, -Inf)) %>% 
+  mutate(gs_estandia =   nsubsp/log(npoly)) %>% 
+  mutate(gs_estandia=na_if(gs_estandia, Inf)) %>% 
+  mutate(gs_estandia=na_if(gs_estandia, -Inf)) %>%
+  mutate(gs_md =   nsubsp/npoly) 
+total_melanesia$rel_island_size <- stdize(total_melanesia$rel_island_size, na.rm=TRUE)
+total_melanesia$gs_index <- stdize(total_melanesia$gs_estandia, na.rm=TRUE)
+
+total_melanesia_plot <- total_melanesia %>%
+  filter(nsubsp>=2) %>%
+  filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = fct_reorder(species_name, gs_index),
+    y = gs_index,
+    size=nsubsp
+  )) +
+  geom_point(col="#886f8f")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "Great Speciator Index (n_subspecies/log(n_islands))\n", x= "\n", title="Northern Melanesia")
+
+plot_total <- world_plot + total_melanesia_plot +plot_layout(nrow=2)
+
+distr_melanesia <- total_melanesia %>%
+  filter(nsubsp>=2) %>%
+  #ilter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = fct_reorder(species_name, gs_index),
+    y = gs_index,
+    size=nsubsp
+  )) +
+  geom_point(col="#886f8f")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "Great Speciator Index (n_subspecies/log(n_islands))\n", x= "\n", title="Northern Melanesia")
+
+distr_world <- total_world %>%
+  filter(nsubsp>=4) %>%
+  #ilter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = fct_reorder(species_name, gs_index),
+    y = gs_index,
+    size=nsubsp
+  )) +
+  geom_point(col="#3ea6c2")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "Great Speciator Index (n_subspecies/log(n_islands))\n", x= "\n", title="Worldwide")
+
+distr <- distr_world+distr_melanesia+plot_layout(nrow=2)
+
+hist_world <- total_world %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = nsubsp
+  )) +
+  geom_histogram(binwidth=1, alpha=0.9, color="#e9ecef") + theme_minimal() + labs(y = "\n", x= "\nn_subspecies", title = "Number of subspecies per species (worldwide)\n")
+
+hist_melanesia <- total_melanesia %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = nsubsp
+  )) +
+  geom_histogram(binwidth=1, alpha=0.9, color="#e9ecef") + theme_minimal() + labs(y = "\n", x= "\nn_subspecies", title = "Number of subspecies per species (Northern Melanesia)\n")
+
+hist <- hist_world+hist_melanesia+plot_layout(nrow=2)
+
+latitude_world <- total_world %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = latitude,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="loess", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nLatitude\n", title="Worldwide - Latitude")
+
+latitude_melanesia <- total_melanesia %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = latitude,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="loess", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nLatitude\n", title="Northern Melanesia - Latitude")
+
+latitude <- latitude_world+latitude_melanesia+plot_layout(nrow=2)
+
+hwi_world <- total_world %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = hwi,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nHWI\n", title="Worldwide - HWI")
+
+hwi_melanesia <- total_melanesia %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = hwi,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nHWI\n", title="Northern Melanesia - HWI")
+
+hwi <- hwi_world+hwi_melanesia+plot_layout(nrow=2)
+
+rate_world <- total_world %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = netdiv,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nDiversification rate\n", title="Worldwide - Diversification rate")
+
+rate_melanesia <- total_melanesia %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = div_rate,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nDiversification rate\n", title="Northern Melanesia - Diversification rate")
+
+rate <- rate_world+rate_melanesia+plot_layout(nrow=2)
+
+precip_world <- total_world %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  filter(precip_range>0) %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = precip_range,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nPrecipitation range\n", title="Worldwide - Precipitation range")
+
+precip_melanesia <- total_melanesia %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  filter(precip_range>0) %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = precip_range,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nPrecipitation range\n", title="Northern Melanesia - Precipitation range")
+
+temperature_world <- total_world %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  filter(precip_range>0) %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = temperature_range,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nTemperature range\n", title="Worldwide - Temperature range")
+
+temperature_melanesia <- total_melanesia %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  filter(precip_range>0) %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = temperature_range,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nTemperature range\n", title="Northern Melanesia - Temperature range")
+
+altitude_world <- total_world %>%
+  #filter(nsubsp>=2) %>%
+  #filter(gs_index>0.33) %>% 
+  filter(islands==1) %>% 
+  filter(precip_range>0) %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = altitude_range,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nAltitude range\n", title="Worldwide - Altitude range")
+
+altitude_melanesia <- total_melanesia %>%
+  filter(precip_range>0) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = altitude_range,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nAltitude range\n", title="Northern Melanesia - Altitude range")
+
+clim_world <- precip_world+temperature_world+altitude_world+plot_layout(nrow=3)
+clim_melanesia <- precip_melanesia+temperature_melanesia+altitude_melanesia+plot_layout(nrow=3)
+
+body_world <- total_world %>%
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = PC1,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nBody size\n", title="Worldwide - Body size")
+
+body_melanesia <- total_melanesia %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = PC1,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nBody size\n", title="Northern Melanesia - Body size")
+
+body <- body_world+body_melanesia+plot_layout(nrow=2)
+
+
+beak_world <- total_world %>%
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = Beak_PC1,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nBeak size\n", title="Worldwide - Beak size")
+
+beak_melanesia <- total_melanesia %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = Beak_PC1,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nBeak size\n", title="Northern Melanesia - Beak size")
+
+beak <- beak_world+beak_melanesia+plot_layout(nrow=2)
+
+realm_world <- total_world %>%
+  filter(islands==1) %>% 
+  filter(Realm!="NA") %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = Realm,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#886f8f")+
+  stat_summary(
+    aes(group = Realm),
+    geom = "pointrange",
+    fun.data = mean_cl_boot,
+    size = 0.5,
+    col="#3f3f40"
+  ) +
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle=45, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nRealm\n", title="Worldwide - Realm")
+
+total_world %>% 
+  group_by(Realm) %>% 
+  summarise(mean=mean(nsubsp, na.rm=TRUE),
+            median=median(nsubsp, na.rm=TRUE),
+            sd= sd(nsubsp, na.rm=TRUE),
+            n=n())
+
+rel_island_world <- total_world %>%
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = rel_island_size,
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="loess", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nRelative island size\n", title="Worldwide - Relative island size")
+
+rel_island_melanesia <- total_melanesia %>%
+  filter(islands==1) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = rel_island_size,
+    y = nsubsp
+  ))+geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="loess", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nRelative island size\n", title="Northern Melanesia - Relative island size")
+
+rel_island <- rel_island_world+rel_island_melanesia+plot_layout(nrow=2)
+
+range_world <- total_world %>%
+  filter(islands==1) %>% 
+  filter(max_dist_poly>0) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = log(max_dist_poly),
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nRange size (log)\n", title="Worldwide - Range size")
+
+range_melanesia <- total_melanesia %>%
+  filter(islands==1) %>% 
+  filter(max_dist_poly>0) %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = log(max_dist_poly),
+    y = nsubsp
+  ))+geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nRange size (log)\n", title="Northern Melanesia - Range size")
+
+range <- range_world+range_melanesia+plot_layout(nrow=2)
+
+median_world <- total_world %>%
+  filter(islands==1) %>% 
+  filter(median>0) %>% 
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = log(median),
+    y = nsubsp
+  )) +
+  geom_jitter(alpha=0.6, col="#3ea6c2")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nMedian distance among islands (log)\n", title="Worldwide - Median distance among islands")
+
+median_melanesia <- total_world %>%
+  filter(islands==1) %>% 
+  filter(median>0) %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = log(median)/log(npoly),
+    y = nsubsp,
+    size=median
+  ))+geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nMedian distance among islands (log)\n", title="Northern Melanesia - Median distance among islands")
+
+relative_distance_npoly <- total_world %>%
+  filter(islands==1) %>% 
+  filter(median>0) %>%
+  distinct(species_name,.keep_all = TRUE) %>% 
+  ggplot(aes(
+    x = log(median)/log(npoly),
+    y = nsubsp
+  ))+geom_jitter(alpha=0.6, col="#886f8f")+geom_smooth(method="lm", color="#2c262e")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) + labs(y = "\nn_subspsecies\n", x= "\nRatio of median distance and number of islands (log)\n", title="Worldwide")+geom_text(data = data.frame(x = 2.82247661516891, y = 28.6292539216964, 
+    label = "A high number of islands \nnot too far away from each other"), 
+    mapping = aes(x = x, y = y, label = label), size = 3.33886813338868, 
+    angle = 0L, lineheight = 1L, hjust = 0L, vjust = 0.45, colour = "black", 
+    family = "Ubuntu", fontface = "plain", inherit.aes = FALSE, 
+    show.legend = FALSE)+
+ geom_text(data = data.frame(x = 17.3860621668155, y = 7.44571078038299, 
+    label = "A few well-separated islands"), mapping = aes(x = x, 
+    y = y, label = label), size = 3.51459803514598, angle = 0L, 
+    lineheight = 1L, hjust = 0.5, vjust = 0.5, colour = "black", 
+    family = "Ubuntu", fontface = "plain", inherit.aes = FALSE, 
+    show.legend = FALSE)
+ggannotate(relative_distance_npoly)
+
+median <- median_world+median_melanesia+plot_layout(nrow=2)
+```
