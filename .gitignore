@@ -10,8 +10,6 @@ data
 *.RData
 *.Ruserdata
 *.RDataTmp
-/reports/
-reports
+*/output/
 *.csv
-/reports/docs
-.~lock.world_filtered.csv#
+*output
