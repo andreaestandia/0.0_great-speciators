@@ -51,3 +51,4 @@ for (i in c(list(sp0intersection, sp1intersection, sp1.1intersection, sp1.2inter
 
 distr_index_final <- resident_distr_total %>% rowwise() %>% 
     mutate(distr_index = sum(distr_index.x, distr_index.x.x, distr_index.y, distr_index.y.y, distr_index.y.y.y, distr_index.x.x.x, na.rm = TRUE)) %>%  as_tibble() %>% dplyr::select(species_name, distr_index)
+```

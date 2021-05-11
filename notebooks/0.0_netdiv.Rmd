@@ -49,6 +49,3 @@ netdiv %>%
 
 #Now you need to left_join to the main dataset
 ```
-
-```{r}
-distdata <- sf::st_read(dsn = "/home/estandia/Documents/projects/0.0_great-speciators/data/raw/map/BOTW.gdb/", layer = "distdata")

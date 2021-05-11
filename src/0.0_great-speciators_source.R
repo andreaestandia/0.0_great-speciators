@@ -17,7 +17,9 @@
 
 suppressPackageStartupMessages({
   library(tidyverse)
+  library(tidybayes)
   library(brms)
+  library(cmdstanr)
   library(phyr)
   library(modelr)
   library(scales)

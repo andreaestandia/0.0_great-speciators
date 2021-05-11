@@ -22,27 +22,46 @@ options(scipen = 999)
 source("./src/0.0_great-speciators_source.R")
 ```
 
+Prepare tree for analyses
 ```{r}
-total_melanesia <- read_csv(file.path(data_path, "dfs/total_melanesia.csv"))
-
-total_melanesia_model <- total_melanesia %>% filter(nsubsp/npoly<=1) %>% mutate(nsubsp=ifelse(nsubsp!=0, nsubsp, 1))
-
-total_melanesia_model$altitude_range <- as.numeric(total_melanesia_model$altitude_range)
-
-total_melanesia_model2 <- total_melanesia_model %>% mutate(rel_island_size = log(area)/log(npoly)) %>% mutate(rel_island_size=na_if(rel_island_size, Inf)) %>% distinct(species_name, .keep_all = TRUE) %>% drop_na(rel_island_size,nsubsp,npoly)
-total_melanesia_model2 <- total_melanesia_model2 %>%  mutate(rel_island_size=na_if(rel_island_size, -Inf))
-total_melanesia_model2$rel_island_size <- stdize(total_melanesia_model2$rel_island_size, na.rm=TRUE)
-
-######
-tree_vig <- read.tree(file.path(data_path, "/raw/bamm/birds_hackett.tre"))
+tree_vig <- read.tree(file.path(data_path, "raw/bamm/birds_hackett.tre"))
 cons_vig = ape::consensus(tree_vig, p=0.5) # To get the majority-rule consensus tree, use p = 0.5
-######
 
-df_mel = total_melanesia_model2 %>% distinct(species_name, .keep_all = TRUE) %>% 
-  filter(tree_name %in% tree_vig$tip.label) %>%  mutate(failures=npoly-nsubsp)
+```
 
-df_mel_2 <- df_mel %>% mutate(log_median=log(median)) %>% mutate(log_max=log(max_dist_poly)) %>% mutate(log_area=log(area)) %>% drop_na(altitude_range) %>% mutate(altitude_range=na_if(altitude_range, -Inf)) %>% drop_na(altitude_range) %>% mutate(rel_median_npoly=log(median)/log(npoly)) %>%  mutate(rel_median_npoly=na_if(rel_median_npoly, -Inf)) %>% drop_na(rel_median_npoly)
+```{r}
+total_mel <- read_csv(file.path(data_path, "dfs/total_melanesia.csv"))
 
+
+total_mel_model <-
+  total_mel %>% 
+  filter(nsubsp / npoly <= 1) %>% #remove sympatric subspeciation events
+  mutate(nsubsp = ifelse(nsubsp !=0, nsubsp, 1)) #if the number of subspecies is 0, treat them as having 1 
+
+total_mel_model$altitude_range <- 
+  as.numeric(total_mel_model$altitude_range) #technical problems :)
+
+df_mel <- 
+  total_mel_model %>% 
+  distinct(species_name, .keep_all = TRUE) %>% 
+  filter(tree_name %in% tree_vig$tip.label) %>%  
+  mutate(failures=npoly-nsubsp) #failures is needed in phyr but not in brms, mute if using brms
+
+df_mel_2 <- 
+  df_mel %>% 
+  mutate(log_median=log(median)) %>% 
+  mutate(log_max=log(max_dist_poly)) %>% 
+  mutate(log_area=log(area)) %>% 
+  drop_na(altitude_range) %>% 
+  mutate(altitude_range=na_if(altitude_range, -Inf)) %>% 
+  mutate(log_max=na_if(log_max, -Inf)) %>% 
+  mutate(log_median=na_if(log_median, -Inf)) %>% 
+  mutate(precip_range=na_if(precip_range, -Inf)) %>% 
+  mutate(temperature_range=na_if(temperature_range, -Inf))
+```
+
+Normalise from 0 to 1 quantitative variables included in list_var
+```{r}
 list_var <- c(
   "hwi",
   "PC1",
@@ -63,114 +82,44 @@ for (variable in list_var) {
 
 standarised <- do.call(cbind, unname(lst))
 colnames(standarised) <- paste0("norm_", colnames(standarised))
+```
 
+```{r}
 df_mel_final <- cbind(df_mel_2, standarised)
+#Prune tree and only keep those tips that are present in the column tree_name because they have the same taxonomy
 
 phylo_mel <- keep.tip(tree_vig,df_mel_final$tree_name)
-
-phylo_mel2 = compute.brlen(phylo_mel) # computes branch lengths, needed for next steps
+#Compute branch lengths, needed for next steps
+phylo_mel2 = compute.brlen(phylo_mel) 
 mel_phylo <- vcv.phylo(phylo_mel2, cor = T)
+```
 
-mod_mel <- pglmm(cbind(nsubsp,failures)~norm_hwi*norm_PC1+norm_precip_range*norm_altitude_range*norm_temperature_range+norm_log_max+norm_log_median+norm_netdiv+Realm+diet+habitat+migratory_status_3+(1|tree_name__), data=df_mel_final, cov_ranef = list(tree_name = mel_phylo), family="binomial", bayes = TRUE, prior="pc.prior.auto")
-
-plot_bayes(mod_mel)
-
-mod_mel_freq <- pglmm(cbind(nsubsp,failures)~norm_hwi*norm_PC1+norm_precip_range*norm_altitude_range*norm_temperature_range+norm_log_max+norm_log_median+norm_netdiv+Realm+diet+habitat+migratory_status_3+(1|tree_name__), data=df_mel_final, cov_ranef = list(tree_name = mel_phylo), family="binomial", bayes = FALSE)
-DHARMa::simulateResiduals(mod_mel)
-
-communityPGLMM.plot.re(x=mod_mel, sp.var="sp.col.name")
-
-predict <- pglmm_predicted_values(mod,
-                                      type = c("link", "response")
-                                      )
-
-fitted <- fitted(mod,
-                     type = c("link", "response")
-                                      )
-predicted_values <- cbind(predict, mod$data)
-
-library(scales)
-#create exp(x)-1 transformation, the inverse of log(1+p)
-expm1_trans <-  function() trans_new("expm1", "expm1", "log1p")
-
-list_vars <- c("norm_hwi",
-    "norm_PC1",
-    "norm_precip_range",
-    "norm_altitude_range",
-    "norm_temperature_range",
-    "norm_log_max",
-    "norm_log_median",
-    "norm_netdiv",
-    "Realm",
-    "diet",
-    "migratory_status_3",
-    "habitat")
-
-plot_habitat <- predicted_values %>%
-  drop_na(
-    list_vars
-  ) %>%
-  ggplot(aes(y = Y_hat, x = habitat)) +
-  geom_jitter(col = "#886f8f", alpha = 0.4) +
-  geom_smooth(
-    method = "glm",
-    method.args = list(family = binomial),
-    color = "black"
-  ) +
-  theme(
-    plot.title = element_text(family = "Ubuntu", size = text_size),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_text(
-      size = text_size,
-      vjust = 0.9,
-      hjust = 1,
-      angle = 45,
-      face = "italic",
-      family = "Ubuntu"
-    ),
-    axis.text.y = element_text(family = "Ubuntu"),
-    axis.title.x = element_text(family = "Ubuntu"),
-    axis.title.y = element_text(family = "Ubuntu"),
-    axis.ticks.y = element_blank()
-  ) + labs(y = "Number of subspecies given opportunity\n", x="\nHabitat")
- 
-plot_total <- plot_pc1+plot_hwi+plot_precip_range+plot_temp_range+plot_altitude+plot_max+plot_median+plot_div+plot_habitat+plot_diet+plot_realm+plot_migr
-  
-
-df_world_final %>%
-  distinct(species_name, .keep_all = T) %>% 
-  ggplot(aes(y = stdize(nsubsp/npoly,na.rm=T), x = altitude_range)) +
-  geom_jitter(col = "#886f8f", alpha = 0.4)+geom_smooth(
-    method = "glm",
-    method.args = list(family = binomial),
-    color = "black"
-  )
-df_world_final %>%
-  distinct(species_name, .keep_all = T) %>% 
-  ggplot(aes(y = norm_precip_range, x = norm_temperature_range)) +
-  geom_jitter(col = "#886f8f", alpha = 0.4)+geom_smooth(
-    method = "glm",
-    method.args = list(family = binomial),
-    color = "black"
-  )
-
-##########################
+```{r}
 total_world <- read_csv(file.path(data_path, "dfs/worldd.csv"))
 
-total_world_model <- total_world %>% filter(nsubsp/npoly<=1) %>% mutate(nsubsp=ifelse(nsubsp!=0, nsubsp, 1)) 
+total_world_model <-
+  total_world %>% 
+  filter(nsubsp / npoly <= 1) %>% #remove sympatric subspeciation events
+  mutate(nsubsp = ifelse(nsubsp !=0, nsubsp, 1)) #if the number of subspecies is 0, treat them as having 1 
 
-total_world_model$altitude_range <- as.numeric(total_world_model$altitude_range)
+total_world_model$altitude_range <- 
+  as.numeric(total_world_model$altitude_range) #technical problems :)
 
-total_world_model2 <- total_world_model %>% mutate(rel_island_size = log(area)/log(npoly)) %>% mutate(rel_island_size=na_if(rel_island_size, Inf)) %>% distinct(species_name, .keep_all = TRUE) %>% drop_na(rel_island_size,nsubsp,npoly)
-total_world_model2 <- total_world_model2 %>%  mutate(rel_island_size=na_if(rel_island_size, -Inf))
-total_world_model2$rel_island_size <- stdize(total_world_model2$rel_island_size, na.rm=TRUE)
+df_world <- 
+  total_world_model %>% 
+  distinct(species_name, .keep_all = TRUE) %>% 
+  filter(tree_name %in% tree_vig$tip.label) %>%  
+  mutate(failures=npoly-nsubsp) #failures is needed in phyr but not in brms, mute if using brms
 
-df_world = total_world_model2 %>% distinct(species_name, .keep_all = TRUE) %>% 
-  filter(tree_name %in% tree_vig$tip.label) %>%  mutate(failures=npoly-nsubsp)
-
-df_world_2 <- df_world %>% mutate(log_median=log(median)) %>% mutate(log_max=log(max_dist_poly)) %>% mutate(log_area=log(area)) %>% drop_na(altitude_range) %>% mutate(altitude_range=na_if(altitude_range, -Inf)) %>% drop_na(altitude_range) %>% mutate(rel_median_npoly=log(median)/log(npoly)) %>%  mutate(rel_median_npoly=na_if(rel_median_npoly, -Inf)) %>% drop_na(rel_median_npoly)
+df_world_2 <- 
+  df_world %>% 
+  mutate(log_median=log(median)) %>% 
+  mutate(log_max=log(max_dist_poly)) %>% 
+  mutate(log_area=log(area)) %>% 
+  drop_na(altitude_range) %>% 
+  mutate(altitude_range=na_if(altitude_range, -Inf)) %>% 
+  mutate(log_max=na_if(log_max, -Inf)) %>% 
+  mutate(log_median=na_if(log_median, -Inf))
 
 list_var <- c(
   "hwi",
@@ -185,7 +134,7 @@ list_var <- c(
 
 lst=NULL
 for (variable in list_var) {
-  lst[[variable]] <- df_world_2 %>% 
+  lst[[variable]] <- df_world %>% 
     dplyr::select(variable) %>%  
     stdize(.,na.rm=TRUE)
 }
@@ -193,61 +142,342 @@ for (variable in list_var) {
 standarised <- do.call(cbind, unname(lst))
 colnames(standarised) <- paste0("norm_", colnames(standarised))
 
-df_world_final <- cbind(df_world_2, standarised)
+df_world_final <- cbind(df_world, standarised)
 
 phylo_world <- keep.tip(tree_vig,df_world_final$tree_name)
 
 phylo_world2 = compute.brlen(phylo_world) # computes branch lengths, needed for next steps
 world_phylo <- vcv.phylo(phylo_world2, cor = T)
 
-mod <- pglmm(cbind(nsubsp,failures)~norm_hwi*norm_PC1+norm_precip_range*norm_altitude_range+norm_altitude_range*norm_temperature_range+norm_temperature_range*norm_precip_range+norm_log_max+norm_log_median+norm_netdiv+Realm+diet+habitat+migratory_status_3+(1|tree_name__), data=df_world_final, cov_ranef = list(tree_name = world_phylo), family="binomial", bayes = TRUE, prior="pc.prior.auto")
-
-null <- pglmm(cbind(nsubsp,failures)~1+(1|tree_name__), data=df_world_final, cov_ranef = list(tree_name = world_phylo), family="binomial", bayes = TRUE, prior="pc.prior.auto")
-
-deviance <- 2*(mod$logLik - null$logLik)
-pchisq(deviance, df=1, lower.tail=F)
-LRT.b1 <- c(dev = deviance, p.value=pchisq(deviance, df=1, lower.tail=F))
-
-test_nested <- phyr::pglmm_profile_LRT(mod, re.number = 6)
-LRTs <- sapply(1:6, FUN = function(x) 
-  phyr::pglmm_profile_LRT(mod, re.number = x))
-colnames(LRTs) <- names(mod$ss)
-t(LRTs)
-
-plot_bayes(mod, predicted = TRUE)
-rr2::R2(mod)
-
-mod_freq <- pglmm(cbind(nsubsp,failures)~hwi*PC1+precip_range*altitude_range+altitude_range*temperature_range+temperature_range*precip_range+log_max+log_median+netdiv+Realm+latitude+diet+habitat+migratory_status_3+(1|tree_name__), data=g2, cov_ranef = list(tree_name = vig_phylo), family="binomial", bayes = FALSE, prior="pc.prior.auto")
 ```
 
+Brms models - global island dataset
 ```{r}
-mod <- brm(nsubsp|trials(npoly)~hwi*PC1+Beak_PC1+log_max+log_median+div_rate,
-    data=g2,
-    family=zero_inflated_binomial("probit"),
-    chains = 2, iter = 4000,
-    control = list(adapt_delta = 0.95))
-
-mod_world_brms <- brm(nsubsp|trials(npoly)~norm_hwi*norm_PC1+norm_precip_range*norm_altitude_range+norm_altitude_range*norm_temperature_range+norm_temperature_range*norm_precip_range+norm_log_max+norm_log_median+norm_netdiv+Realm+diet+habitat+migratory_status_3+(1|gr(tree_name, cov = world_phylo)),
-    data=df_world_final,
+mod_world_logit <-
+  brm(
+    nsubsp | trials(npoly) ~ 
+      norm_hwi * norm_PC1 + 
+      norm_precip_range * norm_altitude_range *norm_temperature_range + 
+      norm_log_max + 
+      norm_log_median + 
+      norm_netdiv + 
+      Realm +
+      diet + 
+      habitat + 
+      migratory_status_3 + 
+      norm_abs_latitude + 
+      (1 |gr(tree_name, cov = world_phylo)),
+    data = df_world_final,
     data2 = list(world_phylo = world_phylo),
-    chains = 2, iter = 4000,
+    chains = 4,
+    iter = 4000,
+    inits = "0",
+    threads = threading(30),
+    backend = "cmdstanr",
+    control = list(adapt_delta = 0.95),
+    family = binomial("logit")
+  )
+
+loo1 <- loo(mod_mel_brms)
+loo2 <- loo(mod_mel_null)
+loo_compare(loo1, loo2)
+
+brms_dataset <- mod_world_logit$data
+
+mod_world_null <-
+  brm(
+    nsubsp | trials(npoly) ~ 1 + 
+      (1 |gr(tree_name, cov = world_phylo)),
+    data = brms_dataset,
+    data2 = list(world_phylo = world_phylo),
+    chains = 4,
+    iter = 4000,
     inits = "0",
     control = list(adapt_delta = 0.95),
-    family=zero_inflated_binomial("probit"))
-    
-plot(mod2, N = 2, ask = FALSE)
-plot(conditional_effects(mod, points=TRUE, method="predict", conditions = data.frame(npoly=40)))
-pp_check(mod2)
+    family = binomial("logit")
+  )
 
-plot(conditional_effects(fit2, conditions=data.frame(npoly=50)), points=TRUE)
+#Reduced dataset
 
-n <- sample(1:10, 100, TRUE) # number of trials
-success <- rbinom(100, size = n, prob = 0.4)
-x <- rnorm(100)
-data2 <- data.frame(n, success, x)
+df_world_reduced <-
+  brms_dataset %>%
+  filter(tree_name %in% tree_vig$tip.label)
 
-fit2 <- brm(nsubsp | trials(npoly) ~ hwi, data = g2,
-family = binomial("probit"))
+phylo_world <- keep.tip(tree_vig,df_world_reduced$tree_name)
 
-g2 %>% ggplot(aes(y=nsubsp,x=npoly))+geom_point()+geom_smooth(method="lm")
+phylo_world2 = compute.brlen(phylo_world)
+world_phylo <- vcv.phylo(phylo_world2, cor = T)
+
+mod_world_logit_reduced <-
+  brm(
+    nsubsp | trials(npoly) ~ 
+      norm_hwi + 
+      norm_precip_range *norm_temperature_range + 
+      norm_log_max + 
+      (1 |gr(tree_name, cov = world_phylo)),
+    data = df_world_reduced,
+    data2 = list(world_phylo = world_phylo),
+    chains = 4,
+    iter = 4000,
+    inits = "0",
+    #threads = threading(30),
+    #backend = "cmdstanr",
+    control = list(adapt_delta = 0.95),
+    family = binomial("logit")
+  )
+
+```
+
+Brms models - melanesian dataset
+```{r}
+mod_mel_brms <-
+  brm(
+    nsubsp |
+      trials(npoly) ~ norm_hwi * norm_PC1 + norm_precip_range * norm_altitude_range*norm_temperature_range + norm_log_max + norm_log_median + norm_netdiv +
+      diet + habitat + migratory_status_3 + (1 |gr(tree_name, cov = mel_phylo)),
+    data = df_mel_final,
+    data2 = list(mel_phylo = mel_phylo),
+    chains = 4,
+    iter = 4000, 
+    inits = "0",
+    threads = threading(20),
+    backend = "cmdstanr",
+    control = list(adapt_delta = 0.95),
+    family = zero_inflated_binomial("logit")
+  )
+
+mod_null_mel <-
+  brm(
+    nsubsp |
+      trials(npoly) ~ (1 |gr(tree_name, cov = mel_phylo)),
+    data = df_mel_final,
+    data2 = list(mel_phylo = mel_phylo),
+    chains = 4,
+    iter = 4000, 
+    inits = "0",
+    control = list(adapt_delta = 0.95),
+    family = zero_inflated_binomial("logit")
+  )
+
+```
+
+Plots
+```{r}
+fit2
+plot(fit2)
+pp_check(fit2)
+plot(conditional_effects(mod_world_logit, conditions=data.frame(npoly=20), re_formula = NA), points=TRUE)
+
+fit <- brm(
+  nsubsp | trials(npoly) ~ norm_hwi*norm_PC1+norm_precip_range*norm_temperature_range*norm_altitude_range+ norm_log_max + norm_log_median + norm_netdiv + Realm + diet + habitat + migratory_status_3,
+  data = df_mel_final,
+  chains = 2,
+  family = zero_inflated_binomial("probit")
+)
+
+mod_world_brms <- brm(
+  nsubsp | trials(npoly) ~ norm_hwi*norm_PC1+norm_precip_range*norm_temperature_range*norm_altitude_range+ norm_log_max + norm_log_median + norm_netdiv + Realm + diet + habitat + migratory_status_3,
+  data = df_world_final,
+  chains = 2,
+  family = zero_inflated_binomial("logit")
+)
+
+df_world_final %>% ggplot(aes(y=nsubsp/npoly,x=norm_altitude_range))+geom_point()+geom_smooth(
+    method = "glm",
+    method.args = list(family = binomial),
+    color = "black"
+  ) 
+stanplot(mod_world_logit, 
+         type = "areas",
+         N=4,
+         prob = 0.95)
+
+#Interpret log
+exp(fixef(mod_world_logit)[2,-2]*sd(pull(df_world_final, norm_precip_range), na.rm = T))
+
+#Plot
+mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_log_max) %>%
+  mutate(norm_log_max = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_log_max) %>%
+  mutate(pred = exp(b_Intercept + b_norm_log_max*norm_log_max)/(1+exp(b_Intercept + b_norm_log_max*norm_log_max))) %>%
+  group_by(norm_log_max) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_log_max, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nRange size")+
+  ylab("Number of subspecies given the opportunities\n") +
+  scale_y_continuous(breaks = seq(0, 0.11, 0.89))+theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+list_vars_plot <- names(mod_world_logit$data)
+list_vars_plot <- list_vars_plot[c(2:10,15)]
+
+for (i in list_vars_plot) {
+mod_world_logit %>%
+   spread_draws(b_Intercept, paste0("b_", i)) %>%
+   mutate(i = list(seq(0, 1, 0.1))) %>% #the observed value range of MSESC
+   unnest(i) 
+  
+}  
+  %>%
+  mutate(pred = exp(b_Intercept + b_norm_log_max*norm_log_max)/(1+exp(b_Intercept + b_norm_log_max*norm_log_max))) %>%
+  group_by(norm_log_max) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.1),
+            pred_high = quantile(pred, prob = 0.9)) %>%
+  ggplot(aes(x = norm_log_max, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nRange size")+
+  ylab("Number of subspecies given the opportunities\n") +
+  scale_y_continuous(breaks = seq(0, 1, 0.1))+theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+}
+  
+post_complete <- posterior_samples(mod_mel_brms)
+
+post <- fixef(mod_mel_brms)[ ,"Estimate"] %>%
+  inv_logit_scaled()
+
+post %>%
+  transmute(HWI  = b_norm_hwi,
+            "Range size" = b_norm_log_max,
+             Diet_Nectar = b_dietnectar,
+            "Body size" = b_norm_PC1,
+            Altitude = b_norm_temperature_range,) %>%  
+  gather() %>% 
+  
+  # plot
+  ggplot(aes(x = value, y = key, fill = key)) +
+  stat_halfeye(point_interval = median_qi, .width = .95,
+                color = wes_palette("Moonrise2")[4]) +
+  labs(title = "Mean estimate for HWI",
+       x     = "# subsp / # poly",
+       y     = NULL) +
+  theme(legend.position = "none",
+        axis.ticks.y    = element_blank())
+
+mod_mel_brms %>%
+  spread_draws(norm_PC1) %>%
+  ggplot(aes(x = norm_hwi, y = nsubsp)) +
+  stat_halfeye()
+
+
+total_world_model %>%
+  #filter(gs_norm >=0.4) %>% #| occurrences >= 7) %>%
+  #filter(occurrences>4) %>% 
+  #filter(species_name!="Alcedo atthis") %>% 
+  filter(median>0) %>% 
+  mutate(log_median2=log(median)) %>% 
+  ggplot(aes(
+    x = log_median2,
+    y = nsubsp/npoly
+    #color=distr_index
+  )) +
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = binomial),
+    color = "black"
+  )+
+  geom_point(col="#3ea6c2")+
+  scale_color_brewer(palette="Dark2")+
+  geom_hline(yintercept=0.33, linetype="dashed", col= "darkgrey")+
+  #geom_jitter(alpha = 0.2) +
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) 
+
+
+```
+
+
+```{r}
+pp <- predict(mod_world_logit)
+mod_world_pred <- cbind(mod_world_logit, pp)
+
+plot_gsi <- mod_world_pred %>%
+  mutate(gsi=nsubsp/log(npoly)) %>% 
+  filter(gsi != "Inf") %>% 
+  mutate(gsi=stdize(gsi,na.rm=T)) %>% 
+  ggplot(aes(
+    x = Estimate,
+    y = gsi
+  )) +
+  geom_smooth(
+    method = "lm",
+    #method.args = list(family = binomial),
+    color = "black"
+  )+
+  geom_jitter(col="#bf9624")+
+  scale_color_brewer(palette="Dark2")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) +
+  labs(y="Great Speciator Index (GSI)", x="Predicted estimate")
+
+plot_md <- mod_world_pred %>%
+  mutate(gsi=nsubsp/npoly) %>% 
+  #filter(gsi != "Inf") %>% 
+  mutate(gsi=stdize(gsi,na.rm=T)) %>% 
+  ggplot(aes(
+    x = Estimate,
+    y = gsi
+  )) +
+  # geom_smooth(
+  #   method = "lm",
+  #   #method.args = list(family = binomial),
+  #   color = "black"
+  # )+
+  geom_jitter(col="#4192a6")+
+  scale_color_brewer(palette="Dark2")+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank()) +
+  labs(y="Mayr and Diamond (2001) Index", x="Predicted estimate")+gghighlight(nsubsp>=7 | gsi >=0.33)
+
+plot_gsi_md <- plot_gsi + plot_md
+
+
 ```

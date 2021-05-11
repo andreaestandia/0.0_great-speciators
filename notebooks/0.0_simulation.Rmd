@@ -123,14 +123,35 @@ dispersal_probabilities <- island_dispersal %>%
 
 
 ```{r}
-sim <- SpatialTreeSimulation$new()
-sim$setSimulationParameters(
-  task = 1,
-  seed = 2,
-  min_speciation_rate = 0.000001,
-  dispersal_map_file = dispersal_file,
-  fine_map_file = density_file,
-  uses_logging = FALSE
-)
+sdplants=0
+nm.setup <- function(gridlength, nplants, spinit)
+{
+  habdata <- data.frame(matrix(nrow = gridlength ^ 2, ncol = 5))
+  names(habdata) <- c("cell", "xpos", "ypos", "species", "nsubsp")
+  habdata$cell <- as.integer(1:gridlength ^ 2)
+  habdata$xpos <- (habdata$cell - 1) %% gridlength + 1
+  habdata$ypos <- (habdata$cell - 1) %/% gridlength + 1
+  relabund <- rlnorm(n = nplants,
+                     meanlog = 0,
+                     sdlog = sdplants)
+  if (length(relabund) != nplants)
+    browser()
+  habdata$plant <- as.integer(sample(
+    x = 1:nplants,
+    size = gridlength ^ 2,
+    replace = TRUE,
+    prob = relabund
+  ))
+  occ.cells <- as.integer(sample(
+    x = 1:(gridlength ^ 2),
+    size = spinit,
+    replace = FALSE
+  ))
+  habdata$nsubsp <- replace(x = habdata$nsubsp,
+                            list = occ.cells,
+                            values = 1:spinit)
+  habdata
+}
 
+nm.setup(gridlength = 5, nplants = 10, spinit = 1)
 ```

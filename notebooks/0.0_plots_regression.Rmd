@@ -1,0 +1,241 @@
+---
+title: "0.0_regression.Rmd"
+author: "Andrea Estandia<br>"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  github_document:
+  toc: true
+toc_depth: 4
+editor_options:
+  chunk_output_type: console
+---
+  <br>
+  
+```{r setup, echo=FALSE}
+# Knitr settings: 
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+options(scipen = 999)
+```
+
+```{r, echo=FALSE}
+source("./src/0.0_great-speciators_source.R")
+```
+
+Generate plots - to be written in a loop
+```{r}
+range <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_log_max) %>%
+  mutate(norm_log_max = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_log_max) %>%
+  mutate(pred = exp(b_Intercept + b_norm_log_max*norm_log_max)/(1+exp(b_Intercept + b_norm_log_max*norm_log_max))) %>%
+  group_by(norm_log_max) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_log_max, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nRange size")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+hwi <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_hwi) %>%
+  mutate(norm_hwi = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_hwi) %>%
+  mutate(pred = exp(b_Intercept + b_norm_hwi*norm_hwi)/(1+exp(b_Intercept + b_norm_hwi*norm_hwi))) %>%
+  group_by(norm_hwi) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_hwi, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nHand-wing Index")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+pc1 <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_PC1) %>%
+  mutate(norm_PC1 = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_PC1) %>%
+  mutate(pred = exp(b_Intercept + b_norm_PC1*norm_PC1)/(1+exp(b_Intercept + b_norm_PC1*norm_PC1))) %>%
+  group_by(norm_PC1) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_PC1, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nPC1 - Body size")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+prec <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_precip_range) %>%
+  mutate(norm_precip_range = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_precip_range) %>%
+  mutate(pred = exp(b_Intercept + b_norm_precip_range*norm_precip_range)/(1+exp(b_Intercept + b_norm_precip_range*norm_precip_range))) %>%
+  group_by(norm_precip_range) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_precip_range, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nPrecipitation range")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+alt <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_altitude_range) %>%
+  mutate(norm_altitude_range = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_altitude_range) %>%
+  mutate(pred = exp(b_Intercept + b_norm_altitude_range*norm_altitude_range)/(1+exp(b_Intercept + b_norm_altitude_range*norm_altitude_range))) %>%
+  group_by(norm_altitude_range) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_altitude_range, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nAltitude range")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+temp <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_temperature_range) %>%
+  mutate(norm_temperature_range = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_temperature_range) %>%
+  mutate(pred = exp(b_Intercept + b_norm_temperature_range*norm_temperature_range)/(1+exp(b_Intercept + b_norm_temperature_range*norm_temperature_range))) %>%
+  group_by(norm_temperature_range) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_temperature_range, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nTemperature range")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+median <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_log_median) %>%
+  mutate(norm_log_median = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_log_median) %>%
+  mutate(pred = exp(b_Intercept + b_norm_log_median*norm_log_median)/(1+exp(b_Intercept + b_norm_log_median*norm_log_median))) %>%
+  group_by(norm_log_median) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_log_median, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nMedian distance among islands")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+netdiv <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_netdiv) %>%
+  mutate(norm_netdiv = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_netdiv) %>%
+  mutate(pred = exp(b_Intercept + b_norm_netdiv*norm_netdiv)/(1+exp(b_Intercept + b_norm_netdiv*norm_netdiv))) %>%
+  group_by(norm_netdiv) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_netdiv, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nDiversification rate")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+lat <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_abs_latitude) %>%
+  mutate(norm_abs_latitude = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_abs_latitude) %>%
+  mutate(pred = exp(b_Intercept + b_norm_abs_latitude*norm_abs_latitude)/(1+exp(b_Intercept + b_norm_abs_latitude*norm_abs_latitude))) %>%
+  group_by(norm_abs_latitude) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_abs_latitude, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nLatitude")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+plot_total <- hwi+pc1+temp+prec+alt+range+median+lat+netdiv
+
+```
