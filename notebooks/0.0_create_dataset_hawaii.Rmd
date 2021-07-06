@@ -1,0 +1,372 @@
+---
+title: "0.0_create_dataset_hawaii"
+author: "Andrea Estandia"
+date: "18/05/2021"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  github_document:
+  toc: true
+toc_depth: 4
+editor_options:
+  chunk_output_type: console
+chunk_output_type: console
+---
+  
+```{r setup, echo=FALSE}
+# Knitr settings: 
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = TRUE,
+	warning = TRUE
+)
+options(scipen = 999)
+```
+
+```{r, echo=FALSE}
+source("./src/0.0_great-speciators_source.R")
+```
+
+Open a map with every piece of land as an individual polygon and select everything smaller than Madagascar
+```{r}
+land <-
+  sf::st_read(dsn = file.path(data_path, "shapefiles", "hawaii.shp")) %>%
+  mutate(area = st_area(.) / 1000000) %>% 
+  drop_units() %>% 
+  filter(area < 587000) %>% 
+  st_set_crs(., 4326)
+```
+
+Open species distribution (requested from Birdlife)
+```{r}
+resident <-
+  sf::st_read(dsn = file.path(data_path, "shapefiles", "All_Species_Resident.shp")) %>% st_set_crs(., 4326)
+breeding <-
+  sf::st_read(dsn = file.path(data_path, "shapefiles", "All_Species_Breeding.shp")) %>% st_set_crs(., 4326)
+```
+
+Calculate number of polygons in the resident dataset - see calculateNpolygon in src
+```{r}
+#Calculate number of polygons per species
+resident_npoly <- calculateNpolygon(resident, land)
+
+#Save polygons for future use in the npoly folder
+save(resident_npoly, file=file.path(data_path, "npoly","hawaii_npoly_resident.RData"))
+
+#produce a file that contains a column with species name and another one with the number of polygons where that species is present
+y = NULL
+for (i in resident_npoly) {
+    tmp <- i %>% dplyr::select(SCINAME, npoly) %>%
+      as.data.frame() %>%
+      distinct(SCINAME, .keep_all = TRUE) %>%
+      dplyr::select(-geometry)
+    y <- rbind(y, tmp)
+    resident_npoly <- y %>% rename(species_name = SCINAME)
+    resident_npoly
+}
+
+#Save count of islands dataset for future use in the dfs folder
+save(resident_npoly, file=file.path(data_path, "dfs","hawaii_npoly_resident.RData"))
+```
+
+Calculate number of polygons in the breeding dataset
+```{r}
+breeding_npoly <- calculateNpolygon(breeding, land)
+
+save(breeding_npoly, file=file.path(data_path, "npoly","hawaii_npoly_breeding.RData"))
+
+y = NULL
+for (i in breeding_npoly) {
+    tmp <- i %>% dplyr::select(SCINAME, npoly) %>%
+      as.data.frame() %>%
+      distinct(SCINAME, .keep_all = TRUE) %>%
+      dplyr::select(-geometry)
+    y <- rbind(y, tmp)
+    breeding_npoly <- y %>% rename(species_name = SCINAME)
+    breeding_npoly
+}
+
+save(breeding_npoly, file=file.path(data_path, "dfs","hawaii_npoly_breeding.RData"))
+
+#merge resident and breeding datasets
+npoly <- full_join(breeding_npoly, resident_npoly, by="species_name") %>% mutate(npoly=rowSums(cbind(npoly.x, npoly.y), na.rm = TRUE)) %>% dplyr::select(species_name, npoly)
+
+#save final dataset that will be merged with the main 
+write.csv(npoly, file=file.path(data_path, "dfs", "npoly_hawaii.csv"))
+```
+
+Calculate biovariables
+```{r}
+#load saved polygons
+load(file.path(data_path, "dfs","hawaii_npoly_breeding.RData"))
+
+#download the WorldClim variables (bioclimatic variables and altitude variables)
+bio <- getData("worldclim", var = "bio", res = 2.5, path = file.path(data_path,"biovariables", "wc2-5"))
+alt <- getData("worldclim", var = "alt", res = 2.5, path = file.path(data_path,"biovariables", "wc2-5"))
+
+#remove species that contain empty geometries. If this is not done, you'll get an error
+resident_npoly_complete <- list()
+for (i in resident_npoly){
+  if(length(i$OBJECTID)>0){
+    resident_npoly_complete[[as.character(unique(i$SCINAME))]] <- i
+  }
+}
+
+#for each species and its polygons, calculate the max, min and median for the folloing variables:
+#BIO7, BIO12, BIO16, BIO17 and altitude
+
+#the calculateBioclimate function works fine in a local computer, but not in a cluster. In my experience, it's quite intense to run this analysis in your local machine, so example for cluster below.
+
+#select variables that we want to include in our analysis
+
+list_biovar <- as.list(bio)
+list_biovar<- list_biovar[c(7,12,16,17)]
+
+datalist = list()
+for (var in list_biovar){
+  var_name <- var@data@names
+  datalist[[as.character(var_name)]]  <- calculateBioclimate(resident_npoly_complete, var)
+}
+biovariables = plyr::join_all(datalist[1:4])
+
+altitude <- calculateBioclimate(resident_npoly_complete, alt)
+
+save(biovariables, file=file.path(data_path, "biovariables", "biovars.RData"))
+save(alttiude, file=file.path(data_path, "biovariables", "altitude.RData"))
+
+#If the lines above don't work in your cluster, then you can run the code below
+
+result = NULL
+for (species in resident_npoly_complete) {
+  tmp <- crop(bio$bio7, species) %>% mask(species)
+  dataset <-
+    as.data.frame(values(tmp)) %>% drop_na()
+  colnames(dataset) <- "species"
+  result[[as.character(unique(species$SCINAME))]] <-
+    dataset %>% summarise(
+      temp_annual_range_max = max(species),
+      temp_annual_range_min = min(species),
+      temp_annual_range_median = median(species)
+    )
+}
+
+bio7 <-
+  data.frame(matrix(unlist(result), nrow = length(result), byrow = T))
+colnames(bio7) <- c("temp_annual_range_max", "temp_annual_range_min", "temp_annual_range_median")
+rownames(bio7) <- names(result)
+bio7 <- bio7 %>% rownames_to_column(var = "species_name")
+
+result = NULL
+for (species in resident_npoly_complete) {
+  tmp <- crop(bio$bio12, species) %>% mask(species)
+  dataset <-
+    as.data.frame(values(tmp)) %>% drop_na()
+  colnames(dataset) <- "species"
+  result[[as.character(unique(species$SCINAME))]] <-
+    dataset %>% summarise(
+      ann_prec_max = max(species),
+      ann_prec_min = min(species),
+      ann_prec_median = median(species)
+    )
+}
+
+bio12 <-
+  data.frame(matrix(unlist(result), nrow = length(result), byrow = T))
+colnames(bio12) <- c("ann_prec_max", "ann_prec_min", "ann_prec_median")
+rownames(bio12) <- names(result)
+bio12 <- bio12 %>% rownames_to_column(var = "species_name")
+
+result = NULL
+for (species in resident_npoly_complete) {
+  tmp <- crop(bio$bio16, species) %>% mask(species)
+  dataset <-
+    as.data.frame(values(tmp)) %>% drop_na()
+  colnames(dataset) <- "species"
+  result[[as.character(unique(species$SCINAME))]] <-
+    dataset %>% summarise(
+      prec_wet_quarter_max = max(species),
+      prec_wet_quarter_min = min(species),
+      prec_wet_quarter_median = median(species)
+    )
+}
+
+bio16 <-
+  data.frame(matrix(unlist(result), nrow = length(result), byrow = T))
+colnames(bio16) <- c("prec_wet_quarter_max", "prec_wet_quarter_min", "prec_wet_quarter_median")
+rownames(bio16) <- names(result)
+bio16 <- bio16 %>% rownames_to_column(var = "species_name")
+
+result = NULL
+for (species in resident_npoly_complete) {
+  tmp <- crop(bio$bio17, species) %>% mask(species)
+  dataset <-
+    as.data.frame(values(tmp)) %>% drop_na()
+  colnames(dataset) <- "species"
+  result[[as.character(unique(species$SCINAME))]] <-
+    dataset %>% summarise(
+      prec_dry_quarter_max = max(species),
+      prec_dry_quarter_min = min(species),
+      prec_dry_quarter_median = median(species)
+    )
+}
+
+bio17 <-
+  data.frame(matrix(unlist(result), nrow = length(result), byrow = T))
+colnames(bio17) <- c("prec_dry_quarter_max", "prec_dry_quarter_min", "prec_dry_quarter_median")
+rownames(bio17) <- names(result)
+bio17 <- bio17 %>% rownames_to_column(var = "species_name")
+
+result = NULL
+for (species in resident_npoly_complete) {
+  tmp <- crop(alt, species) %>% mask(species)
+  dataset <-
+    as.data.frame(values(tmp)) %>% drop_na()
+  colnames(dataset) <- "species"
+  result[[as.character(unique(species$SCINAME))]] <-
+    dataset %>% summarise(
+      prec_cold_quarter_max = max(species),
+      prec_cold_quarter_min = min(species),
+      prec_cold_quarter_median = median(species)
+    )
+}
+
+alt <-
+  data.frame(matrix(unlist(result), nrow = length(result), byrow = T))
+colnames(alt) <- c("alt_max", "alt_min", "alt_median")
+rownames(alt) <- names(result)
+alt <- alt %>% rownames_to_column(var = "species_name")
+
+#merge all datasets and save in the dfs folder
+total <-
+  join_all(list(bio1,bio7,bio12,bio16,bio17,alt), by='species_name', type='full')
+
+write.csv(total, file.path(data_path,"dfs", "bioclimate_hawaii.csv"), row.names = F)
+```
+
+Calculate median and max distance (range size)
+```{r}
+#load the polygons again. If already loaded, skip this step
+load(file.path(data_path, "npoly/hawaii_npoly_resident.RData"))
+
+#because calculating the maximum and median distance from a matrix with more than
+#5000 elements is quite computationally costly, filter dataset 
+resident_npoly_complete <- list()
+for (i in resident_npoly){
+  if(length(i$OBJECTID)>0 && length(i$OBJECTID)<5000){
+    resident_npoly_complete[[as.character(unique(i$SCINAME))]] <- i
+  }
+}
+
+#to see calculateMedianDist and calculateMaxDistPoly fo to src
+median <- calculateMedianDist(resident_npoly_complete)
+maxdist <- calculateMaxDistPoly(resident_npoly_complete)
+
+write_csv(median, file.path(data_path,"dfs", "median_dist_hawaii.csv"))
+write_csv(maxdist, file.path(data_path,"dfs", "max_dist_hawaii.csv"))
+```
+
+Once all the necessary datasets have been created, open them and open the data collected from various sources about HWI, migratory behaviour, subspecies range descriptions...
+```{r}
+# df_hawaii_old <- read_csv(file.path(data_path,"dfs", "total_hawaii.csv")) %>% dplyr::select(species_name, subspecies,islands) 
+
+hawaii_npoly <- read_csv(file.path(data_path, "npoly", "npoly_hawaii.csv"))
+
+clements <- read_csv(file.path(data_path, "dfs", "Clements-Checklist-v2019-August-2019.csv")) %>% clean_names() %>% dplyr::select(scientific_name, category, range, order, family)
+
+birdlife_tax <- read_csv(file.path(data_path, "dfs", "birdlife_taxonomy.csv")) %>% dplyr::select(scientific_name) %>% separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c(genus, species), sep=" ")
+
+islands_hawaii <- read_csv(file.path(data_path, "dfs", "islands_hawaii.csv")) %>% dplyr::select(islands, scientific_name)
+
+hwi_dataset <- read_csv(file.path(data_path, "dfs", "dataset_3.csv")) %>%  clean_names() %>% dplyr::select(species_name, tree_name, hwi, body_mass_log, habitat, latitude) %>% mutate(latitude= abs(latitude)) %>% mutate(habitat=ifelse(habitat==1, "dense", habitat)) %>% mutate(habitat=ifelse(habitat==2, "semiopen", habitat)) %>% mutate(habitat=ifelse(habitat==3, "open", habitat))
+
+mig_beh <- read_csv(file.path(data_path, "dfs" , "mig_beh.csv")) %>% dplyr::select(species_name,Migratory_status_3) %>% rename(migration = Migratory_status_3)
+niche <-read_csv(file.path(data_path,"dfs", "diet_realm_Pigot2020.csv")) %>% rename(species_name=tree_name) %>% 
+  separate(species_name, c("genus", "species")) %>% unite(species_name, c("genus", "species"), sep=" ") %>% dplyr::select(species_name, Realm)
+
+tip_rates <- read_csv(file.path(data_path,"dfs", "tiprates.csv")) %>%  separate(tree_name, c("genus", "species")) %>% unite(tree_name, c("genus", "species"), sep="_")
+
+bioclim_hawaii <- read_csv(file.path(data_path, "dfs", "bioclimate_hawaii.csv")) %>% 
+  mutate(altitude_range = alt_max-alt_min) %>% 
+  mutate(temperature_range=temp_annual_range_median) %>% 
+  mutate(precipitation_range=ann_prec_max-ann_prec_min) %>% 
+  dplyr::select(species_name, altitude_range, temperature_range, precipitation_range, ann_mean_temp_median, ann_prec_median, alt_median) %>% 
+  mutate(precipitation_range=ifelse(precipitation_range=="-Inf",0,precipitation_range)) %>% 
+  mutate(precipitation_range=ifelse(altitude_range=="-Inf",0,altitude_range)) %>% 
+  mutate(temperature_range=ifelse(altitude_range=="-Inf",0,temperature_range))
+max_dist_hawaii <- read_csv(file.path(data_path, "dfs", "max_dist_hawaii.csv"))
+median_dist_hawaii <- read_csv(file.path(data_path, "dfs", "median_dist_hawaii.csv"))
+
+hawaii_dataset <- hawaii_npoly %>%  
+  left_join(birdlife_tax, by ="species_name") %>% 
+  unite(scientific_name, c(species_name, subspecies), sep=" ")%>% 
+  left_join(clements, by ="scientific_name") %>% 
+  distinct(scientific_name, .keep_all = T) %>% 
+  separate(scientific_name, c("genus", "species", "subspecies")) %>%
+  unite(species_name, c(genus, species), sep=" ") %>% 
+  left_join(hwi_dataset, by="species_name") %>% 
+  left_join(mig_beh, by="species_name") %>% 
+  left_join(tip_rates, by="tree_name") %>% 
+  left_join(max_dist_hawaii) %>% 
+  left_join(median_dist_hawaii) %>%
+  left_join(bioclim_hawaii) %>% 
+  mutate(category=ifelse(subspecies=="NA", "species", category)) %>% 
+  mutate(category=ifelse(is.na(category), "subspecies", category))
+
+ioc <- read_csv(file.path(data_path,"dfs", "ioc_subsp.csv"))
+
+hawaii_dataset <- hawaii_dataset %>% unite(scientific_name, c(species_name, subspecies), sep=" ") %>% left_join(ioc, by ="scientific_name") %>% mutate(range=ifelse(is.na(range.x), range.y, range.x))%>% dplyr::select(-range.x,-range.y)
+
+write.csv(hawaii_dataset,file.path(data_path, "dfs/0.0_hawaii.csv"), row.names = F)
+```
+Now it's time to go through every subspecies range and in a new column named "islands" add a 0 if the subspecies range does not fall with our dataset, and 1 is it does. The new file would be called 0.1_hawaii.csv 
+
+```{r}
+ hawaii_0.0 <- read_csv(file.path(data_path, "dfs", "0.0_hawaii.csv"))#%>% unite(scientific_name, c(species_name, subspecies), sep=" ")
+# islands_hawaii <- read_csv(file.path(data_path, "dfs", "islands_hawaii.csv")) %>% 
+#   dplyr::select(scientific_name, islands)
+# 
+# hawaii_0.1 <- left_join(hawaii_0.0, islands_hawaii, by="scientific_name") %>% mutate(islands=coalesce(islands.x, islands.y)) %>% dplyr::select(-islands.x, -islands.y) %>%  separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c(genus, species), sep=" ")
+# 
+# write.csv(hawaii_0.1,file.path(data_path, "dfs/0.1_hawaii.csv"), row.names = F)
+```
+
+Calculate number of subspecies per species
+```{r}
+hawaii_0.1_subsp_1 <- 
+  read_csv(file.path(data_path, "dfs", "0.1_hawaii.csv")) %>%
+  separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c(genus, species), sep=" ") %>% 
+  group_by(species_name) %>% 
+  filter(category == "subspecies" | category == "group (monotypic)") %>% 
+  filter(islands == 1) %>% 
+  mutate(nsubsp = n())
+
+hawaii_0.1_subsp_2 <- 
+  read_csv(file.path(data_path, "dfs", "0.1_hawaii.csv")) %>%
+  separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c(genus, species), sep=" ") %>% 
+  group_by(species_name) %>% 
+  filter(category == "subspecies" | category == "group (monotypic)") %>% 
+  filter(islands == 0) 
+
+hawaii_0.1_sp <- 
+  read_csv(file.path(data_path, "dfs", "0.1_hawaii.csv")) %>% 
+  separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c(genus, species), sep=" ") %>% 
+  filter(category == "species") %>% 
+  mutate(nsubsp=1)
+
+hawaii_0.1 <- full_join(hawaii_0.1_subsp_1, hawaii_0.1_subsp_2) %>% full_join(hawaii_0.1_sp) %>% 
+  group_by(species_name) %>% mutate(nsubsp=max(nsubsp, na.rm=T))
+
+write.csv(hawaii_0.1,file.path(data_path, "dfs", "0.2_hawaii.csv"), row.names = F)
+```
+
+There are some species for which the taxonomy is different in Clements and in Birdlife so let's identify which species are those. We will need to manually go through them, check their equivalent in Birdlife, if existent at all, and update them manually 
+```{r}
+hawaii_0.2 <- read_csv(file.path(data_path, "dfs", "0.2_hawaii.csv"))
+clements <- read_csv(file.path(data_path, "dfs", "Clements-Checklist-v2019-August-2019.csv")) %>% clean_names() %>% dplyr::select(scientific_name, category, range, order, family) %>% separate(scientific_name, c("genus", "species", "subspecies")) %>% unite(species_name, c(genus, species), sep=" ")
+
+not_joined_clements <-   hawaii_0.2 %>% filter(species_name %!in% clements$species_name) %>% dplyr::select(species_name)
+
+write.csv(not_joined_clements, file.path(data_path, "dfs", "not_joined_clements_hawaii.csv"), row.names = F)
+```
+
+The new manually edited spreadsheet will be called 0.3_hawaii. This file should be ready for analysis!

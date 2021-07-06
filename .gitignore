@@ -13,3 +13,6 @@ data
 */output/
 *.csv
 *output
+*/reports/
+reports
+/reports/

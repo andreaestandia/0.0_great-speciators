@@ -24,9 +24,251 @@ source("./src/0.0_great-speciators_source.R")
 
 Generate plots - to be written in a loop
 ```{r}
-range <- mod_world_logit %>%
+range <- mod_melanesia_logit %>%
   spread_draws(b_Intercept, b_norm_log_max) %>%
   mutate(norm_log_max = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_log_max) %>%
+  mutate(pred = exp(b_Intercept + b_norm_log_max*norm_log_max)/(1+exp(b_Intercept + b_norm_log_max*norm_log_max))) %>%
+  group_by(norm_log_max) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.95)) %>%
+  ggplot(aes(x = norm_log_max, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nRange size")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+hwi <- mod_melanesia_logit %>%
+  spread_draws(b_Intercept, b_norm_hwi) %>%
+  mutate(norm_hwi = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_hwi) %>%
+  mutate(pred = exp(b_Intercept + b_norm_hwi*norm_hwi)/(1+exp(b_Intercept + b_norm_hwi*norm_hwi))) %>%
+  group_by(norm_hwi) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.95)) %>%
+  ggplot(aes(x = norm_hwi, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nHand-wing Index")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+pc1 <- mod_melanesia_logit %>%
+  spread_draws(b_Intercept, b_norm_body_mass_log) %>%
+  mutate(norm_body_mass_log = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_body_mass_log) %>%
+  mutate(pred = exp(b_Intercept + b_norm_body_mass_log*norm_body_mass_log)/(1+exp(b_Intercept + b_norm_body_mass_log*norm_body_mass_log))) %>%
+  group_by(norm_body_mass_log) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.95)) %>%
+  ggplot(aes(x = norm_body_mass_log, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nPC1 - Body size")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+prec <- mod_melanesia_logit %>%
+  spread_draws(b_Intercept, b_norm_precipitation_range) %>%
+  mutate(norm_precipitation_range = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_precipitation_range) %>%
+  mutate(pred = exp(b_Intercept + b_norm_precipitation_range*norm_precipitation_range)/(1+exp(b_Intercept + b_norm_precipitation_range*norm_precipitation_range))) %>%
+  group_by(norm_precipitation_range) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.95)) %>%
+  ggplot(aes(x = norm_precipitation_range, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nPrecipitation range")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+alt <- mod_melanesia_logit %>%
+  spread_draws(b_Intercept, b_norm_alt_median) %>%
+  mutate(norm_alt_median = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_alt_median) %>%
+  mutate(pred = exp(b_Intercept + b_norm_alt_median*norm_alt_median)/(1+exp(b_Intercept + b_norm_alt_median*norm_alt_median))) %>%
+  group_by(norm_alt_median) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.95)) %>%
+  ggplot(aes(x = norm_alt_median, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nAltitude range")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+temp <- mod_melanesia_logit %>%
+  spread_draws(b_Intercept, b_norm_temperature_range) %>%
+  mutate(norm_temperature_range = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_temperature_range) %>%
+  mutate(pred = exp(b_Intercept + b_norm_temperature_range*norm_temperature_range)/(1+exp(b_Intercept + b_norm_temperature_range*norm_temperature_range))) %>%
+  group_by(norm_temperature_range) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.95)) %>%
+  ggplot(aes(x = norm_temperature_range, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nTemperature range")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+median <- mod_melanesia_logit %>%
+  spread_draws(b_Intercept, b_norm_log_median) %>%
+  mutate(norm_log_median = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_log_median) %>%
+  mutate(pred = exp(b_Intercept + b_norm_log_median*norm_log_median)/(1+exp(b_Intercept + b_norm_log_median*norm_log_median))) %>%
+  group_by(norm_log_median) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.95)) %>%
+  ggplot(aes(x = norm_log_median, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nMedian distance among islands")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+netdiv <- mod_melanesia_logit %>%
+  spread_draws(b_Intercept, b_norm_netdiv) %>%
+  mutate(norm_netdiv = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  unnest(norm_netdiv) %>%
+  mutate(pred = exp(b_Intercept + b_norm_netdiv*norm_netdiv)/(1+exp(b_Intercept + b_norm_netdiv*norm_netdiv))) %>%
+  group_by(norm_netdiv) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.95)) %>%
+  ggplot(aes(x = norm_netdiv, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nDiversification rate")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+# lat <- mod_melanesia_logit %>%
+#   spread_draws(b_Intercept, b_norm_latitude) %>%
+#   mutate(norm_latitude = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+#   unnest(norm_latitude) %>%
+#   mutate(pred = exp(b_Intercept + b_norm_latitude*norm_latitude)/(1+exp(b_Intercept + b_norm_latitude*norm_latitude))) %>%
+#   group_by(norm_latitude) %>%
+#   summarise(pred_m = mean(pred, na.rm = TRUE),
+#             pred_low = quantile(pred, prob = 0.11),
+#             pred_high = quantile(pred, prob = 0.89)) %>%
+#   ggplot(aes(x = norm_latitude, y = pred_m)) +
+#   geom_line() +
+#   geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+#   xlab("\nLatitude")+
+#   ylab("Prediction estimate\n") +theme(
+#     panel.grid.major = element_blank(),
+#     panel.grid.minor = element_blank(),
+#     axis.ticks.x = element_blank(),
+#     axis.ticks.y = element_blank(),
+#     axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+#     axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+#     axis.title.x = element_text(family="Ubuntu"),
+#     axis.title.y = element_text(family="Ubuntu"))
+
+mig <- mod_melanesia_logit %>%
+  spread_draws(b_Intercept, b_migration) %>%
+  mutate(migration = list(seq(0, 1, 0.11))) %>% #the observed value range of MSESC
+  unnest(migration) %>%
+  mutate(pred = exp(b_Intercept + b_norm_latitude*norm_latitude)/(1+exp(b_Intercept + b_norm_latitude*norm_latitude))) %>%
+  group_by(norm_latitude) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_latitude, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nLatitude")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+plot_total <- hwi+pc1+temp+prec+alt+range+median+netdiv
+
+
+
+```
+
+```{r}
+range <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_norm_log_max) %>%
+  mutate(norm_log_max = list(seq(0, 1, 0.0005))) %>% #the observed value range of MSESC
   unnest(norm_log_max) %>%
   mutate(pred = exp(b_Intercept + b_norm_log_max*norm_log_max)/(1+exp(b_Intercept + b_norm_log_max*norm_log_max))) %>%
   group_by(norm_log_max) %>%
@@ -49,7 +291,7 @@ range <- mod_world_logit %>%
 
 hwi <- mod_world_logit %>%
   spread_draws(b_Intercept, b_norm_hwi) %>%
-  mutate(norm_hwi = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  mutate(norm_hwi = list(seq(0, 1, 0.0005))) %>% #the observed value range of MSESC
   unnest(norm_hwi) %>%
   mutate(pred = exp(b_Intercept + b_norm_hwi*norm_hwi)/(1+exp(b_Intercept + b_norm_hwi*norm_hwi))) %>%
   group_by(norm_hwi) %>%
@@ -71,15 +313,15 @@ hwi <- mod_world_logit %>%
     axis.title.y = element_text(family="Ubuntu"))
 
 pc1 <- mod_world_logit %>%
-  spread_draws(b_Intercept, b_norm_PC1) %>%
-  mutate(norm_PC1 = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
-  unnest(norm_PC1) %>%
-  mutate(pred = exp(b_Intercept + b_norm_PC1*norm_PC1)/(1+exp(b_Intercept + b_norm_PC1*norm_PC1))) %>%
-  group_by(norm_PC1) %>%
+  spread_draws(b_Intercept, b_norm_body_mass_log) %>%
+  mutate(norm_body_mass_log = list(seq(0, 1, 0.0005))) %>% #the observed value range of MSESC
+  unnest(norm_body_mass_log) %>%
+  mutate(pred = exp(b_Intercept + b_norm_body_mass_log*norm_body_mass_log)/(1+exp(b_Intercept + b_norm_body_mass_log*norm_body_mass_log))) %>%
+  group_by(norm_body_mass_log) %>%
   summarise(pred_m = mean(pred, na.rm = TRUE),
             pred_low = quantile(pred, prob = 0.11),
             pred_high = quantile(pred, prob = 0.89)) %>%
-  ggplot(aes(x = norm_PC1, y = pred_m)) +
+  ggplot(aes(x = norm_body_mass_log, y = pred_m)) +
   geom_line() +
   geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
   xlab("\nPC1 - Body size")+
@@ -95,15 +337,15 @@ pc1 <- mod_world_logit %>%
 
 
 prec <- mod_world_logit %>%
-  spread_draws(b_Intercept, b_norm_precip_range) %>%
-  mutate(norm_precip_range = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
-  unnest(norm_precip_range) %>%
-  mutate(pred = exp(b_Intercept + b_norm_precip_range*norm_precip_range)/(1+exp(b_Intercept + b_norm_precip_range*norm_precip_range))) %>%
-  group_by(norm_precip_range) %>%
+  spread_draws(b_Intercept, b_norm_precipitation_range) %>%
+  mutate(norm_precipitation_range = list(seq(0, 1, 0.0005))) %>% #the observed value range of MSESC
+  unnest(norm_precipitation_range) %>%
+  mutate(pred = exp(b_Intercept + b_norm_precipitation_range*norm_precipitation_range)/(1+exp(b_Intercept + b_norm_precipitation_range*norm_precipitation_range))) %>%
+  group_by(norm_precipitation_range) %>%
   summarise(pred_m = mean(pred, na.rm = TRUE),
             pred_low = quantile(pred, prob = 0.11),
             pred_high = quantile(pred, prob = 0.89)) %>%
-  ggplot(aes(x = norm_precip_range, y = pred_m)) +
+  ggplot(aes(x = norm_precipitation_range, y = pred_m)) +
   geom_line() +
   geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
   xlab("\nPrecipitation range")+
@@ -119,15 +361,15 @@ prec <- mod_world_logit %>%
 
 
 alt <- mod_world_logit %>%
-  spread_draws(b_Intercept, b_norm_altitude_range) %>%
-  mutate(norm_altitude_range = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
-  unnest(norm_altitude_range) %>%
-  mutate(pred = exp(b_Intercept + b_norm_altitude_range*norm_altitude_range)/(1+exp(b_Intercept + b_norm_altitude_range*norm_altitude_range))) %>%
-  group_by(norm_altitude_range) %>%
+  spread_draws(b_Intercept, b_norm_alt_median) %>%
+  mutate(norm_alt_median = list(seq(0, 1, 0.0005))) %>% #the observed value range of MSESC
+  unnest(norm_alt_median) %>%
+  mutate(pred = exp(b_Intercept + b_norm_alt_median*norm_alt_median)/(1+exp(b_Intercept + b_norm_alt_median*norm_alt_median))) %>%
+  group_by(norm_alt_median) %>%
   summarise(pred_m = mean(pred, na.rm = TRUE),
             pred_low = quantile(pred, prob = 0.11),
             pred_high = quantile(pred, prob = 0.89)) %>%
-  ggplot(aes(x = norm_altitude_range, y = pred_m)) +
+  ggplot(aes(x = norm_alt_median, y = pred_m)) +
   geom_line() +
   geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
   xlab("\nAltitude range")+
@@ -144,7 +386,7 @@ alt <- mod_world_logit %>%
 
 temp <- mod_world_logit %>%
   spread_draws(b_Intercept, b_norm_temperature_range) %>%
-  mutate(norm_temperature_range = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  mutate(norm_temperature_range = list(seq(0, 1, 0.0005))) %>% #the observed value range of MSESC
   unnest(norm_temperature_range) %>%
   mutate(pred = exp(b_Intercept + b_norm_temperature_range*norm_temperature_range)/(1+exp(b_Intercept + b_norm_temperature_range*norm_temperature_range))) %>%
   group_by(norm_temperature_range) %>%
@@ -168,7 +410,7 @@ temp <- mod_world_logit %>%
 
 median <- mod_world_logit %>%
   spread_draws(b_Intercept, b_norm_log_median) %>%
-  mutate(norm_log_median = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  mutate(norm_log_median = list(seq(0, 1, 0.0005))) %>% #the observed value range of MSESC
   unnest(norm_log_median) %>%
   mutate(pred = exp(b_Intercept + b_norm_log_median*norm_log_median)/(1+exp(b_Intercept + b_norm_log_median*norm_log_median))) %>%
   group_by(norm_log_median) %>%
@@ -191,7 +433,7 @@ median <- mod_world_logit %>%
 
 netdiv <- mod_world_logit %>%
   spread_draws(b_Intercept, b_norm_netdiv) %>%
-  mutate(norm_netdiv = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
+  mutate(norm_netdiv = list(seq(0, 1, 0.0005))) %>% #the observed value range of MSESC
   unnest(norm_netdiv) %>%
   mutate(pred = exp(b_Intercept + b_norm_netdiv*norm_netdiv)/(1+exp(b_Intercept + b_norm_netdiv*norm_netdiv))) %>%
   group_by(norm_netdiv) %>%
@@ -212,17 +454,16 @@ netdiv <- mod_world_logit %>%
     axis.title.x = element_text(family="Ubuntu"),
     axis.title.y = element_text(family="Ubuntu"))
 
-
 lat <- mod_world_logit %>%
-  spread_draws(b_Intercept, b_norm_abs_latitude) %>%
-  mutate(norm_abs_latitude = list(seq(0, 1, 0.05))) %>% #the observed value range of MSESC
-  unnest(norm_abs_latitude) %>%
-  mutate(pred = exp(b_Intercept + b_norm_abs_latitude*norm_abs_latitude)/(1+exp(b_Intercept + b_norm_abs_latitude*norm_abs_latitude))) %>%
-  group_by(norm_abs_latitude) %>%
+  spread_draws(b_Intercept, b_norm_latitude) %>%
+  mutate(norm_latitude = list(seq(0, 1, 0.005))) %>% #the observed value range of MSESC
+  unnest(norm_latitude) %>%
+  mutate(pred = exp(b_Intercept + b_norm_latitude*norm_latitude)/(1+exp(b_Intercept + b_norm_latitude*norm_latitude))) %>%
+  group_by(norm_latitude) %>%
   summarise(pred_m = mean(pred, na.rm = TRUE),
             pred_low = quantile(pred, prob = 0.11),
             pred_high = quantile(pred, prob = 0.89)) %>%
-  ggplot(aes(x = norm_abs_latitude, y = pred_m)) +
+  ggplot(aes(x = norm_latitude, y = pred_m)) +
   geom_line() +
   geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
   xlab("\nLatitude")+
@@ -236,6 +477,622 @@ lat <- mod_world_logit %>%
     axis.title.x = element_text(family="Ubuntu"),
     axis.title.y = element_text(family="Ubuntu"))
 
-plot_total <- hwi+pc1+temp+prec+alt+range+median+lat+netdiv
+mig <- mod_world_logit %>%
+  spread_draws(b_Intercept, b_migration) %>%
+  mutate(migration = list(seq(0, 1, 0.0005))) %>% #the observed value range of MSESC
+  unnest(migration) %>%
+  mutate(pred = exp(b_Intercept + b_norm_latitude*norm_latitude)/(1+exp(b_Intercept + b_norm_latitude*norm_latitude))) %>%
+  group_by(norm_latitude) %>%
+  summarise(pred_m = mean(pred, na.rm = TRUE),
+            pred_low = quantile(pred, prob = 0.11),
+            pred_high = quantile(pred, prob = 0.89)) %>%
+  ggplot(aes(x = norm_latitude, y = pred_m)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = pred_low, ymax = pred_high), alpha=0.2) +
+  xlab("\nLatitude")+
+  ylab("Prediction estimate\n") +theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
 
+plot_total <- hwi+pc1+temp+prec+alt+range+median+netdiv+lat
+
+
+```
+
+# Residuals
+
+```{r}
+
+m1 <- lm(mod_world_logit$data$nsubsp ~ mod_world_logit$data$npoly) 
+
+data = mod_world_logit$data %>% as_tibble()
+residuals = resid(m1) %>% as_tibble()
+
+data_residuals = data %>% cbind(residuals)
+data_residuals$index <- seq(1:length(data_residuals$nsubsp))
+
+data_residuals%>%arrange(desc(value)) %>%filter(value>5) %>% mutate(gsi=nsubsp/log(npoly)) %>%mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% ggplot(aes(x=fct_reorder(as.factor(tree_name),value), y=value,col=gsi,size=gsi))+geom_point()+theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, angle=45, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))
+
+
+data_residuals%>%arrange(desc(value)) %>% mutate(gsi=nsubsp/log(npoly)) %>%mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% ggplot(aes(x=gsi, y=value,col=gsi))+geom_point()
+
+data_residuals%>%arrange(desc(value)) %>%  filter(nsubsp>4) %>% mutate(md=nsubsp/npoly) %>% ggplot(aes(x=md, y=value))+geom_point()
+
+plot(density(resid(m1)))
+
+```
+  
+```{r}
+plot_model(mod_world_logit, sort.est = T, title = "", axis.labels = "",prob.outer = .89, bpe = "median",
+           bpe.style = "dot", value.offset = .4,
+           value.size = 4,
+           dot.size = 1,
+           line.size = 2, colors = c("#715275", "#5090ad"))+theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_text(family="Ubuntu"),
+               axis.title.y = element_text(family="Ubuntu"))+ scale_x_discrete(labels = c("Range size","Migration - marine", "Median distance among islands", "Precipitation range", "HWI", "Body mass","Interaction - HWI and Body mass","Habitat - Open", "Diversification rate","Habitat - Semiopen","Migration - Full resident","Migration - Partial dispersive migrant", "Migration - Partial directional migrant","Migration - Partial resident", 'Migration - Partial nomad','Median altitude','Temperature range'))
+
+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_text(family="Ubuntu"),
+               axis.title.y = element_text(family="Ubuntu")))
+
+plot_model(mod_world_logit, type="norm_log_max", condition=c(npoly=1), title="",ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_log_max")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_text(family="Ubuntu"),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nPredicted residual\n", x=as.character(var))
+
+
+```
+
+```{r}
+list_var <- c("norm_log_max", "norm_log_median", "norm_latitude", "norm_precipitation_range", "norm_temperature_range", "norm_alt_median","norm_hwi", "norm_netdiv", "norm_body_mass_log")
+
+plot_prediction <- function(dataset, var){plot_model(dataset, type="pred", title="",ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms=as.character(var))+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_text(family="Ubuntu"),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nPredicted residual\n", x=as.character(var))
+}
+
+#posterior_predict(mod_world_logit)
+for (i in list_var){
+  print(plot_prediction(mod_melanesia_logit, list_var))
+}
+  
+list_realms <- c("norm_log_max", "norm_log_median", "norm_latitude", "RealmAntarctic", "RealmAustralian","RealmIndo_Malay", "Realm_Madagascar","RealmNearctic", "RealmNeotropic", "RealmOceania", "RealmPalearctic")
+
+list_abiotic <- c("norm_precipitation_range", "norm_temperature_range", "norm_alt_median")
+
+list_species_attr <- c("norm_hwi", "norm_netdiv", "norm_body_mass_log","migrationfullnomad","migrationfullresident","migrationfullresident","migrationmarine","migrationpartialdirectionalmigrant","migrationpartialdispersivemigrant","migrationpartialdispersivemigrant", "migrationpartialnomad", "migrationpartialresident")
+
+
+for (i in list_var){
+  print(plot_posterior(mod_world_logit, i))
+}
+
+plot_coefficients_realm <- function(dataset, list_vars){
+    plot_model(dataset, 
+              sort.est = T, 
+              title = "", 
+              ppd=T,
+              axis.labels = "",
+              bpe = "mean",
+              bpe.style = "dot",
+              prob.inner = .4,
+              prob.outer = .8,
+              colors =c("#424242","#828282"),
+              axis.lim = c(-0.2,0.2),
+              show.values =T,
+              vline.color = "grey", 
+              terms=list_vars)+ylim(c(-0.15,0.05))+theme(
+              panel.grid.major = element_blank(),
+              panel.grid.minor = element_blank(),
+              axis.ticks.x = element_blank(),
+              axis.ticks.y = element_blank(),
+              axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+              axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+              axis.title.x = element_text(family="Ubuntu"),
+              axis.title.y = element_text(family="Ubuntu"))+
+              scale_x_discrete(labels = c("Range size",
+                                          "Latitude",
+                                          "Realm - Nearctic",
+                                          "Realm - Palearctic",
+                                          "Realm - Neotropic",
+                                          "Realm - Indo Malayan", 
+                                          "Realm - Antarctic",
+                                          "Realm - Australian",
+                                          "Realm - Oceania",
+                                          "Median distance among islands"))+
+              labs(title="Biogeographic variables", family="Ubuntu")
+          }
+
+realm_plot <- plot_coefficients_realm(mod_world_logit, list_realms)
+
+plot_coefficients_abiotic <- function(dataset, list_vars){plot_model(dataset, sort.est = T, title = "", axis.labels = "",bpe = "mean",
+    bpe.style = "dot",
+    ppd=T,
+    prob.inner = .4,
+    prob.outer = .8,
+    colors =c("#424242","#828282"),
+    axis.lim = c(-0.2,0.2),
+    show.values =T,
+    vline.color = "grey",
+    terms=list_vars)+ylim(c(-0.06,0.05))+theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))+
+    scale_x_discrete(labels = c("Temperature range",
+                                "Median altitude",
+                                "Precipitation range"))+labs(title="Abiotic variables", family="Ubuntu")
+}
+
+abio_plot <- plot_coefficients_abiotic(mod_world_logit, list_abiotic)
+
+plot_coefficients_sp <- function(dataset, list_vars){plot_model(dataset, sort.est = T, title = "", axis.labels = "",bpe = "mean",
+    bpe.style = "dot",
+    prob.inner = .4,
+    ppd=T,
+    prob.outer = .8,
+    colors =c("#424242","#828282"),
+    axis.lim = c(-0.2,0.2),
+    show.values =T,
+    vline.color = "grey",
+    terms=list_vars)+ylim(c(-0.05,0.03))+theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))+
+    scale_x_discrete(labels = c("Body mass (log)",
+                                "Migration - Marine",
+                                "Hand Wing Index",
+                                "Migration - Full nomad",
+                                "Migration - Partial directional migrant",
+                                 "Diversification rate",
+                                "Migration - Partial dispersive migrant",
+                                "Migration - Full resident",
+                                "Migration - Partial nomad",
+                                "Migration - Partial resident"
+                                ))+labs(title="Species attributes", family="Ubuntu")
+}
+
+sp_plot <- plot_coefficients_sp(mod_world_logit, list_species_attr)
+
+plot_world <- abio_plot/(sp_plot+realm_plot)+ plot_annotation(tag_levels = 'A')
+
+#Compute phylogenetic signal
+irr::icc(mod_world_logit, conf.level = 0.89)
+irr::icc(mod_melanesia_logit, conf.level = 0.89)
+
+#NM
+######
+
+list_realms <- c("norm_log_max", "norm_log_median")
+
+list_abiotic <- c("norm_precipitation_range", "norm_temperature_range", "norm_alt_median")
+
+list_species_attr <- c("norm_hwi", "norm_netdiv", "norm_body_mass_log","migrationfullnomad","migrationfullresident","migrationfullresident","migrationmarine","migrationpartialdirectionalmigrant","migrationpartialdispersivemigrant","migrationpartialdispersivemigrant", "migrationpartialnomad", "migrationpartialresident")
+
+
+for (i in list_var){
+  print(plot_posterior(mod_melanesia_logit, i))
+}
+
+plot_coefficients_realm <- function(dataset, list_vars) {
+  plot_model(
+    dataset,
+    sort.est = T,
+    title = "",
+    ppd=T,
+    axis.labels = "",
+    bpe = "mean",
+    bpe.style = "dot",
+    prob.inner = .4,
+    prob.outer = .8,
+    colors = c("#424242", "#828282"),
+    show.values = T,
+    vline.color = "grey",
+    terms = list_vars
+  ) + ylim(c(-0.55, 0.8)) + theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(
+      size = text_size,
+      vjust = 0.9,
+      hjust = 1,
+      family = "Ubuntu"
+    ),
+    axis.text.y = element_text(
+      size = text_size,
+      vjust = 0.9,
+      hjust = 1,
+      family = "Ubuntu"
+    ),
+    axis.title.x = element_text(family = "Ubuntu"),
+    axis.title.y = element_text(family = "Ubuntu")
+  ) +
+    scale_x_discrete(labels = c("Median distance among islands",
+                                "Range size")) +
+    labs(title = "Biogeographic variables", family = "Ubuntu")
+}
+
+realm_plot_mel <- plot_coefficients_realm(mod_melanesia_logit, list_realms)
+
+plot_coefficients_abiotic <-
+  function(dataset, list_vars) {
+    plot_model(
+      dataset,
+      sort.est = T,
+      title = "",
+      ppd=T,
+      axis.labels = "",
+      bpe = "mean",
+      bpe.style = "dot",
+      prob.inner = .4,
+      prob.outer = .8,
+      colors = c("#424242", "#828282"),
+      axis.lim = c(-0.2, 0.2),
+      show.values = T,
+      vline.color = "grey",
+      terms = list_vars
+    ) + ylim(c(-0.5, 0.5)) + theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.text.x = element_text(
+        size = text_size,
+        vjust = 0.9,
+        hjust = 1,
+        family = "Ubuntu"
+      ),
+      axis.text.y = element_text(
+        size = text_size,
+        vjust = 0.9,
+        hjust = 1,
+        family = "Ubuntu"
+      ),
+      axis.title.x = element_text(family = "Ubuntu"),
+      axis.title.y = element_text(family = "Ubuntu")
+    ) +
+      scale_x_discrete(labels = c("Temperature range",
+                                  "Precipitation range",
+                                  "Median altitude")) + labs(title = "Abiotic variables", family =
+                                                                 "Ubuntu")
+  }
+
+abio_plot_mel <- plot_coefficients_abiotic(mod_melanesia_logit, list_abiotic)
+
+plot_coefficients_sp <- function(dataset, list_vars){plot_model(dataset, sort.est = T, title = "", axis.labels = "",bpe = "mean",
+    bpe.style = "dot",
+    prob.inner = .4,
+    ppd=T,
+    prob.outer = .8,
+    colors =c("#424242","#828282"),
+    axis.lim = c(-0.2,0.2),
+    show.values =T,
+    vline.color = "grey",
+    terms=list_vars)+ylim(c(-0.4,0.4))+theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))+
+    scale_x_discrete(labels = c("Body mass (log)",
+                                "Migration - Partial nomad",
+                                "Diversification rate",
+                                "Migration - Marine",
+                                "Migration - Partial directional migrant",
+                                "Hand Wing Index",
+                                "Migration - Partial dispersive migrant",
+                                "Migration - Full resident",
+                                "Migration - Partial resident"
+                                ))+
+    labs(title="Species attributes", family="Ubuntu")
+}
+
+sp_plot_mel <- plot_coefficients_sp(mod_melanesia_logit, list_species_attr)
+
+plot_mel <- sp_plot_mel+(abio_plot_mel/realm_plot_mel)+plot_layout(ncol = 2)+ plot_annotation(tag_levels = 'A')
+
+ggsave(
+  plot=plot_mel,
+  filename = "fig1_brms_mel.png",
+  path = figures_path,
+  device="png",
+  scale=0.5,
+  width = 50,
+  height = 30,
+  dpi = 400,
+  units = "cm"
+)
+```
+
+```{r}
+range <- plot_model(mod_melanesia_logit, type="eff", show.data = T, title="",ppd=T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_log_max")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nRange size")
+
+temperature <- plot_model(mod_melanesia_logit, type="eff", transform = T, show.data = T,title="",ppd=T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_temperature_range")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1,
+                                          family="Ubuntu"),
+               axis.text.y = element_text(size=text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nTemperature range")
+
+median_log <- plot_model(mod_melanesia_logit, type="eff", title="",ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_log_median")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1,  family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nMedian distance among islands")
+
+body <- plot_model(mod_melanesia_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_body_mass_log")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nBody mass")
+
+alt <- plot_model(mod_melanesia_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_alt_median")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nMedian altitude")
+
+migration <- plot_model(mod_melanesia_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="migration")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nMigration")
+
+precip <- plot_model(mod_melanesia_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_precipitation_range")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nPrecipitation range")
+
+hwi <- plot_model(mod_melanesia_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_hwi")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nHWI")
+
+netdiv <- plot_model(mod_melanesia_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_netdiv")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResiduals\n", title="\nDiversification rate")
+
+plot_nsig_eff <- (range+median_log)/(precip+temperature)/(hwi+netdiv)
+plot_sig_eff <- (body+alt)
+
+migration <- plot_model(mod_melanesia_logit, type="emm",pred.type = "fe",show.data = T, ppd=T, title="",ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="migration")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, angle=45,
+                                          family="Ubuntu"),
+               axis.text.y = element_text(size=text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nMigration")
+
+
+#Compute 89% CI
+
+bayes_R2(mod_melanesia_logit)
+bayestestR::ci(mod_melanesia_logit, ci = 0.89)
+bayestestR::ci(mod_world_logit, ci=0.89)
+
+range <- plot_model(mod_world_logit, type="eff", title="", show.data = T,ppd=T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_log_max")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nPredicted residual\n", title="\nRange size")
+
+temperature <- plot_model(mod_world_logit, type="eff", title="", show.data = T, ppd=T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_temperature_range")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1,
+                                          family="Ubuntu"),
+               axis.text.y = element_text(size=text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nTemperature range")
+
+median_log <- plot_model(mod_world_logit, type="eff", title="",ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_log_median")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1,  family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nMedian distance among islands")
+
+body <- plot_model(mod_world_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_body_mass_log")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nBody mass")
+
+
+precip <- plot_model(mod_world_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_precipitation_range")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nPrecipitation range")
+
+netdiv <- plot_model(mod_world_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_netdiv")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nDiversification rate")
+
+hwi <- plot_model(mod_world_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_hwi")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nHWI")
+
+alt <- plot_model(mod_world_logit, type="eff", title="", ppd=T,show.data = T,ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_alt_median")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.text.y = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nResidual\n", title="\nMedian altitude")
+
+plot_nsig_eff <- (range+median_log)/(precip+temperature)/(hwi+netdiv)
+plot_sig_eff <- (body+alt)
+
+migration <- plot_model(mod_melanesia_logit, type="eff",pred.type = "fe",ppd=T, title="",ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="migration")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, angle=45,
+                                          family="Ubuntu"),
+               axis.text.y = element_text(size=text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nPredicted residual\n", title="\nMigration")
+
+plot_sig_eff + migration
+
+plot_model(mod_world_logit, type="eff", show.data = T, pred.type = "fe",ppd=T, title="",ci.lvl = 0.89,grid.breaks = F, grid=FALSE, terms="norm_log_max")+theme_set(theme(
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.ticks.x = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, angle=45,
+                                          family="Ubuntu"),
+               axis.text.y = element_text(size=text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+               axis.title.x = element_blank(),
+               axis.title.y = element_text(family="Ubuntu", angle=90)))+labs(y="\nPredicted residual\n", title="\nMigration")
+
+list_vars <- c("norm_log_max", "norm_log_median", "norm_precipitation_range", "norm_temperature_range", "norm_alt_median","norm_hwi", "norm_netdiv", "norm_body_mass_log","migrationpartialresident", "migrationfullresident", "migrationpartialdispersivemigrant", "migrationpartialdirectionalmigrant", "migrationpartialnomad", "migrationmarine", "habitatsemiopen", "habitatopen", "norm_latitude", "RealmIndo_Malay", "RealmOceania", "RealmAntarctic", "RealmPalearctic", "RealmNearctic", "RealmNeotropic", "RealmMadagascar")
+alpha_samples <- posterior_samples(mod_world_logit)$b_Intercept
+df <- data.frame(matrix(ncol = 5, nrow = 0))
+colnames(df) <- c("name", "mean", "median", "q_11", "q_89")
+for (var in list_vars) {
+  name = paste0("b_", var)
+  beta_samples <- posterior_samples(mod_world_logit)[[name]]
+  effect_middle_ms <-
+    exp(alpha_samples) - exp(alpha_samples - 1 * beta_samples)
+
+    mn = mean(effect_middle_ms)
+    media = median(effect_middle_ms)
+    q_11 <- quantile(effect_middle_ms, .11)
+    q_89 <- quantile(effect_middle_ms, .89)
+    
+  tmp <- cbind(name, mn, media, q_11, q_89)
+  df <- rbind(df, tmp)
+}
 ```

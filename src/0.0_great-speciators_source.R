@@ -48,6 +48,7 @@ suppressPackageStartupMessages({
   library(foreach)
   library(XML)
   library(letsR)
+  library(sjPlot)
   library(coda)
   library(progress)
   library(parallel)
@@ -78,7 +79,7 @@ if (!dir.exists(figures_path)) {
 # --------------------------------------------------------------------------
 # FUNCTIONS
 # --------------------------------------------------------------------------
-
+'%!in%' <- function(x,y)!('%in%'(x,y))
 stdize = function(x, ...) {(x - min(x, ...)) / (max(x, ...) - min(x, ...))}
 #calculateArea goes through every species in a shapefile and intersects their distribution with the
 #chosen land (everythingisanisland.shp corresponds to every closed polygon on earth, southpacific to the southpacific). It calculates the area of distribution
@@ -119,10 +120,10 @@ calculateDistribution <- function(file) {
 calculateNpolygon <- function(dataset, landtype) {
   out <- list()
   for (i in dataset$SCINAME) {
-    out[[i]] <- dataset %>% filter(SCINAME==i) %>% 
-      st_buffer(dist = 0.0001, nQuadSegs=1) %>% 
+    out[[i]] <- dataset %>% filter(SCINAME==i) %>%
+      st_buffer(dist = 0.0001, nQuadSegs=1) %>%
       st_intersection(landtype, proj4string = "+init=epsg:4326") %>%
-      st_cast("MULTIPOLYGON") %>%  st_cast("POLYGON", warn=F) %>% 
+      st_cast("MULTIPOLYGON") %>%  st_cast("POLYGON", warn=F) %>%
       mutate(npoly=length(geometry))
   }
   out
@@ -137,8 +138,6 @@ calculateBioclimate <- function(dataset, var) {
     colnames(dataset) <- "species"
     result[[as.character(unique(species$SCINAME))]] <-
       dataset %>% summarise(
-        mean = mean(species),
-        sd = sd(species),
         max = max(species),
         min = min(species),
         median = median(species)
@@ -151,6 +150,52 @@ calculateBioclimate <- function(dataset, var) {
   rownames(result_var) <- names(result)
   final_result <- result_var %>% rownames_to_column(var = "species_name")
   print(final_result)
+}
+
+calculateMedianDist <- function(dataset) {
+  median=data.frame(matrix(ncol=1, nrow=1))
+  colnames(median)<-"median_dist_poly"
+  for (i in dataset) {
+    tmp <- i %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON", warn=F) %>%
+      st_centroid() %>%
+      st_distance() %>%
+      median() %>%
+      drop_units()
+    median <- as.data.frame(rbind(median,tmp))
+  }
+  
+  median <- median[-1,] %>% as.data.frame()
+  colnames(median) <- "median_dist_poly"
+  median <- cbind(median,names(dataset)) %>%
+    mutate(species_name=names(dataset)) %>%
+    dplyr::select(median_dist_poly,species_name) %>%
+    distinct(species_name, .keep_all = TRUE)
+  median
+}
+
+calculateMaxDistPoly <- function(dataset) {
+  max=data.frame(matrix(ncol=1, nrow=1))
+  colnames(max)<-"max_dist_poly"
+  for (i in dataset) {
+    tmp <- i %>%
+      st_cast("MULTIPOLYGON") %>%
+      st_cast("POLYGON", warn=F) %>%
+      st_centroid() %>%
+      st_distance() %>%
+      max() %>%
+      drop_units()
+    max <- as.data.frame(rbind(max,tmp))
+  }
+  
+  max <- max[-1,] %>% as.data.frame()
+  colnames(max) <- "max_dist_poly"
+  max <- cbind(max,names(dataset)) %>%
+    mutate(species_name=names(dataset)) %>%
+    dplyr::select(max_dist_poly,species_name) %>%
+    distinct(species_name, .keep_all = TRUE)
+  max
 }
 
 calculateCentrality<- function(dataset) {
@@ -341,5 +386,3 @@ calculateMin <- function(dataset) {
 
 range01 <- function(x){(x-min(x))/(max(x)-min(x))}
 stdize = function(x, ...) {(x - min(x, ...)) / (max(x, ...) - min(x, ...))}
-
-

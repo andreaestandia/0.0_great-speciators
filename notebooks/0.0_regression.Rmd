@@ -30,6 +30,743 @@ cons_vig = ape::consensus(tree_vig, p=0.5) # To get the majority-rule consensus 
 ```
 
 ```{r}
+melanesia_0.2 <- read_csv(file.path(data_path, "dfs", "0.2_melanesia.csv")) %>% unite(scientific_name, c(species_name, subspecies), sep= " ") %>% dplyr::select(scientific_name, range)
+world_0.0 <- read_csv(file.path(data_path, "dfs", "0.0_world.csv")) %>% dplyr::select(-range.y)
+world_0.1 <- left_join(world_0.0, melanesia_0.2, by ="scientific_name") %>% mutate(range=ifelse(is.na(range.x), range.y, range.x))%>% dplyr::select(-range.x,-range.y)
+
+mel_dat_model <- melanesia_0.2 %>% 
+  filter(nsubsp/npoly<=1) %>% 
+  distinct(species_name, .keep_all = T) %>% 
+  mutate(log_max=log(max_dist_poly)) %>% 
+  mutate(log_max=ifelse(log_max=="-Inf",0,log_max)) %>% 
+  mutate(log_median=log(median_dist_poly)) %>% 
+  mutate(log_median=ifelse(log_median=="-Inf",0,log_median))
+  
+
+list_var <- c(
+  "hwi",
+  "body_mass_log",
+  "precipitation_range",
+  "alt_median",
+  "temperature_range",
+  "log_max",
+  "log_median",
+  "netdiv"
+)
+
+lst=NULL
+for (variable in list_var) {
+  lst[[variable]] <- mel_dat_model %>% 
+    dplyr::select(variable) %>%  
+    stdize(.,na.rm=TRUE)
+}
+
+standarised <- do.call(cbind, unname(lst))
+colnames(standarised) <- paste0("norm_", colnames(standarised))
+df_mel_dat_model <- cbind(mel_dat_model, standarised)
+df_mel_dat_model<- df_mel_dat_model %>% mutate(total=npoly-nsubsp) %>% 
+  mutate(gsi = log(nsubsp)/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% 
+  arrange(desc(gsi)) 
+df_mel_dat_model<-df_mel_dat_model %>% dplyr::select(species_name,nsubsp,npoly,norm_hwi, norm_body_mass_log, 
+      norm_precipitation_range, norm_alt_median,norm_temperature_range,
+      norm_log_max, 
+      norm_log_median,
+      norm_netdiv, 
+      habitat,
+      migration,
+      total,
+      gsi) %>% drop_na() %>% filter(nsubsp>2)
+mod <- glm(gsi~norm_hwi * norm_body_mass_log + 
+      norm_precipitation_range * norm_alt_median *norm_temperature_range + 
+      norm_log_max + 
+      norm_log_median + 
+      norm_netdiv + 
+      habitat + 
+      migration, 
+    data=df_mel_dat_model)
+newy <- predict(mod, type="response")
+
+df_mel_dat_model$newy <- newy
+
+collider_df = df_mel_dat_model %>% filter(norm_precipitation_range > 0.5)
+cor.test(collider_df$npoly, collider_df$gsi)
+
+hwi <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_hwi))+geom_point(col="#3f8799")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised HWI\n",y ="\nPredicted GSI\n")
+
+body_mass <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_body_mass_log))+geom_point(col="#745f8a")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Body mass (log)\n",y ="\nPredicted GSI\n")
+
+prec_range <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_precipitation_range))+geom_point(col="#808f50")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Precipitation range\n",y ="\nPredicted GSI\n")
+
+temperature_range <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_temperature_range))+geom_point(col="#9c371e")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Temperature range\n",y ="\nPredicted GSI\n")
+
+alt <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_alt_median))+geom_point(col="#bd8346")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Median altitude\n",y ="\nPredicted GSI\n")
+
+
+range <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_log_max))+geom_point(col="#c2b44a")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Range size\n",y ="\nPredicted GSI\n")
+
+
+median <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_log_median))+geom_point(col="#5d6380")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Median distance among islands\n",y ="\nPredicted GSI\n")
+
+
+net <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_netdiv))+geom_point(col="#448064")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Diversification rate\n",y ="\nPredicted GSI\n")
+
+
+habitat <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=habitat))+geom_point(col="#3f8799",alpha=0.8)+geom_smooth(method = "lm",
+    color = "black") +
+  stat_summary(
+    aes(group = habitat),
+    geom = "pointrange",
+    fun.data = mean_cl_boot,
+    size = 1,
+    col="#29454d"
+  ) +
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nHabitat\n",y ="\nPredicted GSI\n")
+
+
+migration <- df_mel_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=migration))+geom_point(col="#a16881",alpha=0.8)+geom_smooth(method = "lm",
+    color = "black") +
+  stat_summary(
+    aes(group = migration),
+    geom = "pointrange",
+    fun.data = mean_cl_boot,
+    size = 1,
+    col="#573141"
+  ) +
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1,angle=45, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nMigration\n",y ="\nPredicted GSI\n")
+
+hwi+body_mass+prec_range+temperature_range+alt+range+median+habitat+net
+```
+
+```{r}
+world_0.4 <- read_csv(file.path(data_path, "dfs", "0.4_world.csv"))
+world_dat_model <- world_0.4 %>% 
+  filter(nsubsp/npoly<=1) %>% 
+  distinct(species_name, .keep_all = T) %>% 
+  mutate(log_max=log(max_dist_poly)) %>% 
+  mutate(log_max=ifelse(log_max=="-Inf",0,log_max)) %>% 
+  mutate(log_median=log(median_dist_poly)) %>% 
+  mutate(log_median=ifelse(log_median=="-Inf",0,log_median))
+  
+
+list_var <- c(
+  "hwi",
+  "body_mass_log",
+  "log_max",
+  "log_median",
+  "netdiv"
+)
+
+lst=NULL
+for (variable in list_var) {
+  lst[[variable]] <- world_dat_model %>% 
+    dplyr::select(variable) %>%  
+    stdize(.,na.rm=TRUE)
+}
+
+standarised <- do.call(cbind, unname(lst))
+colnames(standarised) <- paste0("norm_", colnames(standarised))
+df_world_dat_model <- cbind(world_dat_model, standarised)
+df_world_dat_model<- df_world_dat_model %>% mutate(total=npoly-nsubsp) %>% 
+  mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% 
+  arrange(desc(gsi)) 
+df_world_dat_model<-df_world_dat_model %>% dplyr::select(species_name,nsubsp,npoly,norm_hwi, norm_body_mass_log, 
+      norm_log_max, 
+      norm_log_median,
+      norm_netdiv, 
+      habitat,
+      migration,
+      latitude,
+      total,
+      gsi) %>% drop_na() %>% filter(nsubsp>4)
+mod <- glm(gsi~norm_hwi * norm_body_mass_log + 
+      norm_log_max + 
+      norm_log_median + 
+      norm_netdiv + 
+      habitat + 
+      migration + 
+      latitude,
+    data=df_world_dat_model)
+newy <- predict(mod, type="response")
+
+df_world_dat_model$newy <- newy
+
+hwi <- df_world_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_hwi))+geom_point(col="#3f8799")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised HWI\n",y ="\nPredicted GSI\n")
+
+body_mass <- df_world_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_body_mass_log))+geom_point(col="#745f8a")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Body mass (log)\n",y ="\nPredicted GSI\n")
+
+
+range <- df_world_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_log_max))+geom_point(col="#c2b44a")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Range size\n",y ="\nPredicted GSI\n")
+
+
+median <- df_world_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_log_median))+geom_point(col="#5d6380")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Median distance among islands\n",y ="\nPredicted GSI\n")
+
+
+net <- df_world_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=norm_netdiv))+geom_point(col="#448064")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nNormalised Diversification rate\n",y ="\nPredicted GSI\n")
+
+
+habitat <- df_world_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=habitat))+geom_point(col="#3f8799",alpha=0.8)+geom_smooth(method = "lm",
+    color = "black") +
+  stat_summary(
+    aes(group = habitat),
+    geom = "pointrange",
+    fun.data = mean_cl_boot,
+    size = 1,
+    col="#29454d"
+  ) +
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nHabitat\n",y ="\nPredicted GSI\n")
+
+
+migration <- df_world_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    ggplot(aes(y=newy,x=migration))+geom_point(col="#a16881",alpha=0.8)+geom_smooth(method = "lm",
+    color = "black") +
+  stat_summary(
+    aes(group = migration),
+    geom = "pointrange",
+    fun.data = mean_cl_boot,
+    size = 1,
+    col="#573141"
+  ) +
+  theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1,angle=45, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\nMigration\n",y ="\nPredicted GSI\n")
+
+hwi+body_mass+range+median+habitat+net+ migration
+
+df_world_dat_model %>% 
+    mutate(gsi = nsubsp/log(npoly)) %>% 
+    #filter(nsubsp>2) %>% 
+    filter(newy>1.8) %>% 
+    ggplot(aes(y=newy,x=fct_reorder(species_name, newy), size=nsubsp))+geom_point(col="#448064")+geom_smooth(method = "lm",
+    color = "black") +theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, angle=45, face="italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(x="\n\n",y ="\nPredicted GSI\n")
+```
+
+
+```{r}
+
+plot_mine <- world_0.4 %>% mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>% distinct(species_name,.keep_all = T) %>% ggplot(aes(x=log(npoly),y=nsubsp))+geom_point()+gghighlight(gsi>1.5)+theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(title="mine")
+
+plot_md <- world_0.4 %>% mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>% distinct(species_name,.keep_all = T) %>% ggplot(aes(x=log(npoly),y=nsubsp))+geom_point()+gghighlight(nsubsp>=4 & md>=0.33 | nsubsp>=7)+theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text( vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(title="M&D")
+
+plot_mine2 <- world_0.4 %>% mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>% distinct(species_name,.keep_all = T) %>% ggplot(aes(x=npoly,y=nsubsp))+geom_point()+gghighlight(gsi>1.5)+theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(title="mine")
+
+plot_md2 <- world_0.4 %>% mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>% distinct(species_name,.keep_all = T) %>% ggplot(aes(x=npoly,y=nsubsp))+geom_point()+gghighlight(nsubsp>4 & nsubsp/npoly>0.33 |nsubsp>=7)+theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text( vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(title="M&D")
+
+plot_mine+plot_md+plot_mine2+plot_md2
+
+worl %>% mutate(gsi = log(nsubsp)/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>% distinct(species_name,.keep_all = T) %>% filter(gsi>0.5) %>%  ggplot(aes(x=hwi,y=gsi, size= nsubsp))+geom_point()+geom_smooth(method="lm")+theme(
+    plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text( vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"),
+    axis.ticks.y = element_blank())+labs(title="M&D")
+
+melanesia_0.2 %>% filter(nsubsp<=npoly) %>% mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>%mutate(md = nsubsp/npoly) %>% distinct(species_name,.keep_all = T)  %>%  ggplot(aes(x=md,y=gsi))+geom_point()+
+    theme(plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text( vjust = 0.9,hjust=1,angle=45, face= "italic", family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))+gghighlight(nsubsp>4 | nsubsp<6 & md>0.33)+geom_hline(yintercept=0.9)
+
+distr_mel <- melanesia_0.2 %>% 
+  ggplot(aes(x=nsubsp)) +
+  geom_histogram()+
+    theme(plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text( vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))+ labs(x="\nNumber of subspecies\n",y ="\nCount\n", title= "Northern Melanesia\n")
+
+distr_world <- world_0.2 %>% 
+  ggplot(aes(x=nsubsp)) +
+  geom_histogram()+
+    theme(plot.title = element_text(family = "Ubuntu", size=text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text( vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.y = element_text(family="Ubuntu"),
+    axis.title.x = element_text(family="Ubuntu"),
+    axis.title.y = element_text(family="Ubuntu"))+ labs(x="\nNumber of subspecies\n",y ="\nCount\n", title= "Global island dataset\n")
+
+distr_mel+distr_world
+```
+
+```{r}
+melanesia_0.4 <- read_csv(file.path(data_path, "dfs", "0.2_melanesia.csv"))
+md_1 <- melanesia_0.4 %>% filter(nsubsp<=npoly) %>%filter(nsubsp>=4) %>% filter(nsubsp <= 6) %>%  mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>%mutate(md = nsubsp/npoly) %>% distinct(species_name,.keep_all = T) %>% filter( md>=0.33)
+
+md_2 <- melanesia_0.4 %>%filter(nsubsp>=7)%>%mutate(md = nsubsp/npoly) %>% mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>%  distinct(species_name,.keep_all = T) 
+
+md_total_mel <- rbind(md_1,md_2)
+
+species_md <- md_total_mel$species_name
+r <- melanesia_0.4 %>% filter(nsubsp<=npoly) %>%  mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>%mutate(md = nsubsp/npoly) %>% distinct(species_name,.keep_all = T) 
+r$gsi <- stdize(r$gsi,na.rm=T)
+r %>% ggplot(aes(x = md, y = gsi)) +
+  geom_point() +theme(
+    plot.title = element_text(family = "Ubuntu", size = text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(
+      vjust = 0.9,
+      hjust = 1,
+      family = "Ubuntu"
+    ),
+    axis.text.y = element_text(family = "Ubuntu"),
+    axis.title.x = element_text(family = "Ubuntu"),
+    axis.title.y = element_text(family = "Ubuntu")
+  ) + gghighlight(species_name %in% species_md) +labs(title="Northern Melanesia", y="Estandia et al. (2021) - GSI\n", x="\nMayr and Diamond (2001) Index")+geom_hline(yintercept =0.40, linetype="dashed")
+
+#Species above the 1.6 line that are present in my dataset but not in M&D
+r %>% filter(gsi>0.4) %>% filter(species_name %!in% species_md) %>% dplyr::select(species_name, npoly, nsubsp)
+
+t <- r %>% 
+  filter(species_name %in% md_total_mel$species_name) %>% dplyr::select(species_name,nsubsp, npoly, gsi, md)
+20/length(r$species_name)
+
+plot_mel_gsi <- r %>% ggplot(aes(x = log(npoly), y = nsubsp)) +
+  geom_point() +
+  gghighlight(nsubsp >= 4 | md > 0.33)+theme(
+    plot.title = element_text(family = "Ubuntu", size = text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(
+      vjust = 0.9,
+      hjust = 1,
+      family = "Ubuntu"
+    ),
+    axis.text.y = element_text(family = "Ubuntu"),
+    axis.title.x = element_text(family = "Ubuntu"),
+    axis.title.y = element_text(family = "Ubuntu")
+  ) + gghighlight(species_name %in% species_md) +labs(title="Northern Melanesia - Estandia et al. (2021) - GSI\n", y="\nNumber of subspecies\n", x="\nNumber of islands (log)\n")
+
+plot_mel_md <- r %>% ggplot(aes(x = npoly, y = nsubsp)) +
+  geom_point() +
+  gghighlight(nsubsp >= 4 | md > 0.33)+theme(
+    plot.title = element_text(family = "Ubuntu", size = text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(
+      vjust = 0.9,
+      hjust = 1,
+      family = "Ubuntu"
+    ),
+    axis.text.y = element_text(family = "Ubuntu"),
+    axis.title.x = element_text(family = "Ubuntu"),
+    axis.title.y = element_text(family = "Ubuntu")
+  ) + gghighlight(species_name %in% species_md) +labs(title="Northern Melanesia - Mayr and Diamond (2001) Index\n", y="\nNumber of subspecies\n", x="\nNumber of islands (log)\n")
+
+plot_mel_gsi+plot_mel_md
+
+df_mel_dat_model %>% mutate(gsi = nsubsp/log(npoly)) %>% ggplot(aes(x = fct_reorder(species_name,gsi), y = gsi,size=nsubsp)) +
+  geom_point() +
+  #gghighlight(species_name %in% md_total_mel$species_name)+
+  theme(
+    plot.title = element_text(family = "Ubuntu", size = text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(
+      vjust = 0.9,
+      hjust = 1,
+      angle=45,
+      family = "Ubuntu"
+    ),
+    axis.text.y = element_text(family = "Ubuntu"),
+    axis.title.x = element_text(family = "Ubuntu"),
+    axis.title.y = element_text(family = "Ubuntu")
+  ) + gghighlight(species_name %in% species_md) +labs(title="Northern Melanesia\n", y="\nGSI\n", x="")
+
+#############################
+
+world_0.4 <- read_csv(file.path(data_path, "dfs", "0.2_world.csv"))
+
+md_1 <- world_0.4 %>% filter(nsubsp<=npoly) %>%filter(nsubsp>=4) %>% filter(nsubsp <= 6) %>%  mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>%mutate(md = nsubsp/npoly) %>% distinct(species_name,.keep_all = T) %>% filter( md>0.33)
+
+md_2 <- world_0.4 %>% filter(nsubsp<=npoly) %>%filter(nsubsp>7) %>%  mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>%mutate(md = nsubsp/npoly) %>% distinct(species_name,.keep_all = T) 
+
+md_total <- rbind(md_1,md_2)
+
+species_md <- md$species_name
+z <- world_0.4 %>% filter(nsubsp<=npoly) %>%  mutate(gsi = nsubsp/log(npoly)) %>% mutate(gsi=ifelse(gsi=="Inf",0,gsi)) %>% arrange(desc(gsi)) %>%mutate(md = nsubsp/npoly) %>% distinct(species_name,.keep_all = T) 
+gsi$gsi <- stdize(gsi$gsi,na.rm=T)
+gsi %>% ggplot(aes(x = md, y = gsi)) +
+  geom_point() +
+  gghighlight(nsubsp > 7 | md > 0.33)+theme(
+    plot.title = element_text(family = "Ubuntu", size = text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(
+      vjust = 0.9,
+      hjust = 1,
+      family = "Ubuntu"
+    ),
+    axis.text.y = element_text(family = "Ubuntu"),
+    axis.title.x = element_text(family = "Ubuntu"),
+    axis.title.y = element_text(family = "Ubuntu")
+  ) + gghighlight(species_name %in% species_md) +labs(title="Global island", y="Estandia et al. (2021) - GSI\n", x="\nMayr and Diamond (2001) Index")+geom_hline(yintercept =0.13, linetype="dashed")
+
+#Species above the 1.6 line that are present in my dataset but not in M&D
+p <-gsi %>% filter(gsi>0.13) %>% filter(species_name %!in% species_md) %>% dplyr::select(species_name, npoly, nsubsp)
+
+t <- z %>% 
+  filter(species_name %in% md_total$species_name) %>% dplyr::select(species_name,nsubsp, npoly, gsi, md)
+120/length(z$species_name)
+
+plot_world_gsi <- gsi %>% ggplot(aes(x = log(npoly), y = nsubsp)) +
+  geom_point() +
+  gghighlight(nsubsp >= 4 | md > 0.33)+theme(
+    plot.title = element_text(family = "Ubuntu", size = text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(
+      vjust = 0.9,
+      hjust = 1,
+      family = "Ubuntu"
+    ),
+    axis.text.y = element_text(family = "Ubuntu"),
+    axis.title.x = element_text(family = "Ubuntu"),
+    axis.title.y = element_text(family = "Ubuntu")
+  ) + gghighlight(species_name %in% species_md) +labs(title="Global Island - Estandia et al. (2021) - GSI\n", y="\nNumber of subspecies\n", x="\nNumber of islands (log)\n")
+
+plot_world_md <- gsi %>% ggplot(aes(x = npoly, y = nsubsp)) +
+  geom_point() +
+  gghighlight(nsubsp >= 4 | md > 0.33)+theme(
+    plot.title = element_text(family = "Ubuntu", size = text_size),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    #axis.text.x = element_blank(),
+    axis.text.x = element_text(
+      vjust = 0.9,
+      hjust = 1,
+      family = "Ubuntu"
+    ),
+    axis.text.y = element_text(family = "Ubuntu"),
+    axis.title.x = element_text(family = "Ubuntu"),
+    axis.title.y = element_text(family = "Ubuntu")
+  ) + gghighlight(species_name %in% species_md) +labs(title="Global Island - Mayr and Diamond (2001) Index\n", y="\nNumber of subspecies\n", x="\nNumber of islands\n")
+
+plot_world_gsi + plot_world_md + plot_mel_gsi+plot_mel_md
+```
+
+
+```{r}
 total_mel <- read_csv(file.path(data_path, "dfs/total_melanesia.csv"))
 
 
@@ -265,7 +1002,7 @@ Plots
 ```{r}
 fit2
 plot(fit2)
-pp_check(fit2)
+pp_check(mod_world_logit)
 plot(conditional_effects(mod_world_logit, conditions=data.frame(npoly=20), re_formula = NA), points=TRUE)
 
 fit <- brm(
@@ -320,17 +1057,10 @@ mod_world_logit %>%
     axis.title.x = element_text(family="Ubuntu"),
     axis.title.y = element_text(family="Ubuntu"))
 
-list_vars_plot <- names(mod_world_logit$data)
-list_vars_plot <- list_vars_plot[c(2:10,15)]
-
-for (i in list_vars_plot) {
 mod_world_logit %>%
-   spread_draws(b_Intercept, paste0("b_", i)) %>%
-   mutate(i = list(seq(0, 1, 0.1))) %>% #the observed value range of MSESC
-   unnest(i) 
-  
-}  
-  %>%
+  spread_draws(b_Intercept, b_norm_log_max) %>%
+  mutate(norm_log_max = list(seq(0, 1, 0.1))) %>% #the observed value range of MSESC
+  unnest(norm_log_max) %>%
   mutate(pred = exp(b_Intercept + b_norm_log_max*norm_log_max)/(1+exp(b_Intercept + b_norm_log_max*norm_log_max))) %>%
   group_by(norm_log_max) %>%
   summarise(pred_m = mean(pred, na.rm = TRUE),
@@ -350,8 +1080,7 @@ mod_world_logit %>%
     axis.text.y = element_text(family="Ubuntu"),
     axis.title.x = element_text(family="Ubuntu"),
     axis.title.y = element_text(family="Ubuntu"))
-}
-  
+
 post_complete <- posterior_samples(mod_mel_brms)
 
 post <- fixef(mod_mel_brms)[ ,"Estimate"] %>%
@@ -413,71 +1142,34 @@ total_world_model %>%
     axis.title.y = element_text(family="Ubuntu"),
     axis.ticks.y = element_blank()) 
 
-
-```
-
-
-```{r}
-pp <- predict(mod_world_logit)
-mod_world_pred <- cbind(mod_world_logit, pp)
-
-plot_gsi <- mod_world_pred %>%
-  mutate(gsi=nsubsp/log(npoly)) %>% 
-  filter(gsi != "Inf") %>% 
-  mutate(gsi=stdize(gsi,na.rm=T)) %>% 
+total_world_model %>%
+  #filter(gs_norm >=0.4) %>% #| occurrences >= 7) %>%
+  #filter(occurrences>4) %>% 
+  filter(tree_name!="NA") %>% 
+  #mutate(log_median2=log(median)) %>% 
   ggplot(aes(
-    x = Estimate,
-    y = gsi
+    x = netdiv,
+    y = nsubsp/npoly
+    #color=distr_index
   )) +
   geom_smooth(
-    method = "lm",
-    #method.args = list(family = binomial),
+    method = "glm",
+    method.args = list(family = binomial),
     color = "black"
   )+
-  geom_jitter(col="#bf9624")+
+  geom_jitter(col="#3ea6c2")+
   scale_color_brewer(palette="Dark2")+
+  geom_hline(yintercept=0.33, linetype="dashed", col= "darkgrey")+
+  #geom_jitter(alpha = 0.2) +
   theme(
     plot.title = element_text(family = "Ubuntu", size=text_size),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.ticks.x = element_blank(),
     #axis.text.x = element_blank(),
-    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
+    axis.text.x = element_text(size= text_size, angle = 45, vjust = 0.9,hjust=1, face= "italic", family="Ubuntu"),
     axis.text.y = element_text(family="Ubuntu"),
     axis.title.x = element_text(family="Ubuntu"),
     axis.title.y = element_text(family="Ubuntu"),
-    axis.ticks.y = element_blank()) +
-  labs(y="Great Speciator Index (GSI)", x="Predicted estimate")
-
-plot_md <- mod_world_pred %>%
-  mutate(gsi=nsubsp/npoly) %>% 
-  #filter(gsi != "Inf") %>% 
-  mutate(gsi=stdize(gsi,na.rm=T)) %>% 
-  ggplot(aes(
-    x = Estimate,
-    y = gsi
-  )) +
-  # geom_smooth(
-  #   method = "lm",
-  #   #method.args = list(family = binomial),
-  #   color = "black"
-  # )+
-  geom_jitter(col="#4192a6")+
-  scale_color_brewer(palette="Dark2")+
-  theme(
-    plot.title = element_text(family = "Ubuntu", size=text_size),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.ticks.x = element_blank(),
-    #axis.text.x = element_blank(),
-    axis.text.x = element_text(size= text_size, vjust = 0.9,hjust=1, family="Ubuntu"),
-    axis.text.y = element_text(family="Ubuntu"),
-    axis.title.x = element_text(family="Ubuntu"),
-    axis.title.y = element_text(family="Ubuntu"),
-    axis.ticks.y = element_blank()) +
-  labs(y="Mayr and Diamond (2001) Index", x="Predicted estimate")+gghighlight(nsubsp>=7 | gsi >=0.33)
-
-plot_gsi_md <- plot_gsi + plot_md
-
-
+    axis.ticks.y = element_blank()) 
 ```
